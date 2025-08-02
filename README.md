@@ -1,43 +1,26 @@
-# Welcome to your Expo app 👋
+# MedicAI
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil creada con Expo (React Native) y TypeScript.
 
-## Get started
+## Estructura base
+- Expo + React Native + TypeScript
+- Lista para integración con Supabase
+- Carpetas recomendadas para escalar el proyecto
 
-1. Install dependencies
+## Scripts principales
+- `npm run start` — Inicia el proyecto en modo desarrollo
+- `npm run android` — Ejecuta en un emulador/dispositivo Android
+- `npm run ios` — Ejecuta en un emulador/dispositivo iOS (solo Mac)
+- `npm run web` — Ejecuta en navegador web
 
-   ```bash
-   npm install
-   ```
+## Próximos pasos
+1. Organizar carpetas base (`src/components`, `src/screens`, `src/services`, etc.)
+2. Instalar e integrar Supabase
+3. Crear la primera pantalla de autenticación
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
+¿Listo para continuar con la organización de carpetas y la integración de Supabase?
 
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.

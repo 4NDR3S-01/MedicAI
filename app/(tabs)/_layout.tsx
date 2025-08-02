@@ -8,6 +8,23 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
+type TabBarIconProps = {
+  color: string;
+};
+
+function ChatTabBarIcon({ color }: TabBarIconProps) {
+  return <IconSymbol size={28} name="paperplane.fill" color={color} />;
+}
+
+function RememberTabBarIcon({ color }: TabBarIconProps) {
+  return <IconSymbol size={28} name="magnifyingglass" color={color} />;
+}
+
+function HistoryTabBarIcon({ color }: TabBarIconProps) {
+  return <IconSymbol size={28} name="clock.fill" color={color} />;
+}
+
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -20,24 +37,37 @@ export default function TabLayout() {
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
             position: 'absolute',
           },
           default: {},
         }),
       }}>
       <Tabs.Screen
-        name="index"
+        name="chat"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Chat',
+          tabBarIcon: ChatTabBarIcon,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="recordatorios"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Recordatorios',
+          tabBarIcon: RememberTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="historial"
+        options={{
+          title: 'Historial',
+          tabBarIcon: HistoryTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="configuracion"
+        options={{
+          title: 'Configuracion',
+          tabBarIcon: RememberTabBarIcon,
         }}
       />
     </Tabs>
