@@ -37,10 +37,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "SUPABASE_URL": "https://alpmconjcncskvheiggw.supabase.co",
-      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFscG1jb25qY25jc2t2aGVpZ2d3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzMTIwMjUsImV4cCI6MjA2ODg4ODAyNX0.c5Ft22eyAdufjjEfaqBqEZeE2D900Rk5cDMeO34qlyc"
     }
   }
 }

@@ -24,3 +24,18 @@ export const Colors = {
     tabIconSelected: tintColorDark,
   },
 };
+
+export const Palette = {
+  primary: '#00bbcf',
+  primaryDark: '#0096a6',
+  success: '#2ecc71',
+  warning: '#f1c40f',
+  danger: '#e74c3c',
+  info: '#3498db',
+  surfaceLight: '#f5f9fa',
+  surfaceDark: '#162125',
+  borderLight: '#dde6e8',
+  borderDark: '#233036',
+  textMutedLight: '#5e6a6e',
+  textMutedDark: '#9aa8ad'
+};

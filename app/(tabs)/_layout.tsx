@@ -24,6 +24,10 @@ function HistoryTabBarIcon({ color }: TabBarIconProps) {
   return <IconSymbol size={28} name="clock.fill" color={color} />;
 }
 
+function profileTabBarIcon({ color }: TabBarIconProps) {
+  return <IconSymbol size={28} name="person.fill" color={color} />;
+}
+
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -64,10 +68,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="configuracion"
+        name="mi-perfil"
         options={{
-          title: 'Configuracion',
-          tabBarIcon: RememberTabBarIcon,
+          title: 'Mi Perfil',
+          tabBarIcon: profileTabBarIcon,
         }}
       />
     </Tabs>
