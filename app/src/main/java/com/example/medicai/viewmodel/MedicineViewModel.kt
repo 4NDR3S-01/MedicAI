@@ -68,56 +68,22 @@ class MedicineViewModel(
 
     /**
      * Agregar nuevo medicamento
-     * ✅ Verifica notifications_enabled antes de programar alarmas
      */
     fun addMedicine(medicine: MedicineRequest, onSuccess: () -> Unit = {}) {
-        Log.wtf("MedicineViewModel", "🚨🚨🚨 addMedicine() LLAMADO 🚨🚨🚨")
-        Log.wtf("MedicineViewModel", "Nombre: ${medicine.name}")
-        
-        // Toast inmediato para confirmar que se ejecuta
-        android.widget.Toast.makeText(
-            getApplication(),
-            "🔥 addMedicine() ejecutándose para ${medicine.name}",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-        
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
 
-            Log.d("MedicineViewModel", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Log.d("MedicineViewModel", "➕ Agregando medicamento: ${medicine.name}")
-            Log.d("MedicineViewModel", "📋 Datos del medicamento:")
-            Log.d("MedicineViewModel", "   - Nombre: ${medicine.name}")
-            Log.d("MedicineViewModel", "   - Dosis: ${medicine.dosage}")
-            Log.d("MedicineViewModel", "   - Activo: ${medicine.active}")
-            Log.d("MedicineViewModel", "   - Horarios: ${medicine.times.joinToString(", ")}")
-            Log.d("MedicineViewModel", "   - Usuario: ${medicine.user_id}")
-
             when (val result = repository.addMedicine(medicine)) {
                 is Result.Success -> {
                     val medicineId = (result as Result.Success<Medicine>).data.id
-                    Log.d("MedicineViewModel", "✅ Medicamento guardado en DB con ID: $medicineId")
-                    
                     _successMessage.value = "${medicine.name} agregado exitosamente"
 
-                    // ✅ Verificar si las notificaciones están habilitadas
+                    // Verificar si las notificaciones están habilitadas
                     val notificationsEnabled = UserPreferencesManager.areNotificationsEnabled(getApplication())
-                    Log.d("MedicineViewModel", "🔔 Verificando preferencias de notificaciones...")
-                    Log.d("MedicineViewModel", "   - areNotificationsEnabled: $notificationsEnabled")
-                    Log.d("MedicineViewModel", "   - medicine.active: ${medicine.active}")
 
-                    // 🔔 Programar notificaciones para el medicamento solo si está activo y habilitado
+                    // Programar notificaciones para el medicamento solo si está activo y habilitado
                     if (medicine.active && notificationsEnabled) {
-                        Log.d("MedicineViewModel", "⏰ PROGRAMANDO ALARMAS...")
-                        Log.d("MedicineViewModel", "   - Medicine ID: $medicineId")
-                        Log.d("MedicineViewModel", "   - Nombre: ${medicine.name}")
-                        Log.d("MedicineViewModel", "   - Dosis: ${medicine.dosage}")
-                        Log.d("MedicineViewModel", "   - Horarios: ${medicine.times.size} horarios configurados")
-                        medicine.times.forEachIndexed { index, time ->
-                            Log.d("MedicineViewModel", "     $index. $time")
-                        }
-                        
                         try {
                             AlarmScheduler.scheduleMedicineRemindersWithAdvance(
                                 context = getApplication(),
@@ -125,40 +91,20 @@ class MedicineViewModel(
                                 medicineName = medicine.name,
                                 dosage = medicine.dosage,
                                 times = medicine.times,
-                                minutesBefore = 5 // Recordatorio 5 minutos antes
+                                minutesBefore = 5
                             )
-                            Log.d("MedicineViewModel", "✅ AlarmScheduler.scheduleMedicineRemindersWithAdvance() completado")
                         } catch (e: Exception) {
-                            Log.e("MedicineViewModel", "❌ EXCEPCIÓN al programar notificaciones", e)
-                            Log.e("MedicineViewModel", "   - Tipo: ${e.javaClass.name}")
-                            Log.e("MedicineViewModel", "   - Mensaje: ${e.message}")
-                            Log.e("MedicineViewModel", "   - Stack trace: ${e.stackTraceToString()}")
-                        }
-                    } else {
-                        if (!notificationsEnabled) {
-                            Log.w("MedicineViewModel", "⚠️ NOTIFICACIONES DESHABILITADAS - No se programan alarmas")
-                            Log.w("MedicineViewModel", "   📋 Solución: Ve a Perfil → Configurar Notificaciones → ACTIVAR")
-                        }
-                        if (!medicine.active) {
-                            Log.w("MedicineViewModel", "⚠️ MEDICAMENTO INACTIVO - No se programan alarmas")
-                            Log.w("MedicineViewModel", "   📋 El medicamento fue marcado como inactivo al crearlo")
+                            Log.e("MedicineViewModel", "Error programando notificaciones: ${e.message}")
                         }
                     }
 
-                    loadMedicines(medicine.user_id) // Recargar lista
+                    loadMedicines(medicine.user_id)
                     onSuccess()
-                    Log.d("MedicineViewModel", "✅ Proceso completado")
-                    Log.d("MedicineViewModel", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
                 }
                 is Result.Error -> {
                     _error.value = result.message
-                    Log.e("MedicineViewModel", "❌ Error guardando medicamento: ${result.message}")
-                    Log.d("MedicineViewModel", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
                 }
-                else -> {
-                    Log.e("MedicineViewModel", "❓ Resultado desconocido del repositorio")
-                    Log.d("MedicineViewModel", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                }
+                else -> {}
             }
 
             _isLoading.value = false
