@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Directorio para imágenes de la cámara -->
+    <external-files-path
+        name="pictures"
+        path="Pictures/" />
+    
+    <!-- Directorio de caché para archivos temporales -->
+    <cache-path
+        name="cache"
+        path="." />
+</paths>
