@@ -133,6 +133,29 @@ object MedicAINotificationManager {
         location: String,
         minutesBefore: Int
     ) {
+        // Calcular minutos reales hasta la cita
+        val dateTimeFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+        val appointmentTime = dateTimeFormat.parse(dateTime)
+        val minutesUntilAppointment = if (appointmentTime != null) {
+            val diff = appointmentTime.time - System.currentTimeMillis()
+            (diff / 60000).toInt() // Convertir ms a minutos
+        } else {
+            minutesBefore
+        }
+        
+        // Mensaje adaptativo según el tiempo
+        val timeMessage = when {
+            minutesUntilAppointment <= 0 -> "¡AHORA!"
+            minutesUntilAppointment <= 5 -> "en $minutesUntilAppointment minutos"
+            else -> "en $minutesUntilAppointment minutos"
+        }
+        
+        val bigTextMessage = when {
+            minutesUntilAppointment <= 0 -> "Tu cita médica es AHORA:\n\n"
+            minutesUntilAppointment <= 5 -> "¡Tu cita está muy cerca! En $minutesUntilAppointment minutos:\n\n"
+            else -> "Tienes una cita médica en $minutesUntilAppointment minutos:\n\n"
+        }
+        
         // ✅ Obtener preferencias del usuario
         val prefs = com.example.medicai.data.local.UserPreferencesManager.getNotificationPreferences(context)
         
@@ -150,10 +173,10 @@ object MedicAINotificationManager {
         val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID_APPOINTMENTS)
             .setSmallIcon(R.drawable.logo_app)
             .setContentTitle("🩺 Recordatorio de Cita Médica")
-            .setContentText("$doctorName - En $minutesBefore minutos")
+            .setContentText("$doctorName - $timeMessage")
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("Tienes una cita médica en $minutesBefore minutos:\n\n" +
+                    .bigText(bigTextMessage +
                             "👨‍⚕️ Doctor: $doctorName\n" +
                             "🏥 Especialidad: $specialty\n" +
                             "📅 Fecha y hora: $dateTime\n" +

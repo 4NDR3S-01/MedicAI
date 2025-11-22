@@ -126,7 +126,8 @@ class MedicineViewModel(
                     // Cancelar alarmas anteriores
                     AlarmScheduler.cancelMedicineReminders(
                         context = getApplication(),
-                        medicineId = id
+                        medicineId = id,
+                        timesCount = medicine.times.size
                     )
                     
                     // Reprogramar alarmas si el medicamento está activo y notificaciones habilitadas
@@ -139,7 +140,8 @@ class MedicineViewModel(
                                 medicineId = id,
                                 medicineName = result.data.name,
                                 dosage = result.data.dosage,
-                                times = result.data.times
+                                times = result.data.times,
+                                minutesBefore = 5
                             )
                         } catch (e: Exception) {
                             Log.e("MedicineViewModel", "Error reprogramando alarmas: ${e.message}")
