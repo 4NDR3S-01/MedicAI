@@ -82,7 +82,7 @@ object MedicAINotificationManager {
         )
 
         val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID_MEDICINES)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.logo_app)
             .setContentTitle("💊 Hora de tomar tu medicamento")
             .setContentText("$medicineName - $dosage a las $time")
             .setStyle(
@@ -148,7 +148,7 @@ object MedicAINotificationManager {
         )
 
         val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID_APPOINTMENTS)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.logo_app)
             .setContentTitle("🩺 Recordatorio de Cita Médica")
             .setContentText("$doctorName - En $minutesBefore minutos")
             .setStyle(

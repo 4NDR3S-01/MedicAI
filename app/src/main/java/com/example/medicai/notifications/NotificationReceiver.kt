@@ -83,13 +83,26 @@ class NotificationReceiver : BroadcastReceiver() {
         time: String
     ) {
         try {
+            val isAdvance = time.contains("Recordatorio en")
+            val baseTime = if (isAdvance) {
+                time.substringBefore(" (")
+            } else {
+                time
+            }
+            
+            val minutesBefore = if (isAdvance) 5 else 0
+            
             val calendar = java.util.Calendar.getInstance().apply {
-                val timeParts = time.split(":")
+                val timeParts = baseTime.split(":")
                 set(java.util.Calendar.HOUR_OF_DAY, timeParts[0].toInt())
                 set(java.util.Calendar.MINUTE, timeParts[1].toInt())
                 set(java.util.Calendar.SECOND, 0)
                 set(java.util.Calendar.MILLISECOND, 0)
                 add(java.util.Calendar.DAY_OF_YEAR, 1) // Mañana
+                
+                if (isAdvance) {
+                    add(java.util.Calendar.MINUTE, -minutesBefore) // Restar minutos si es anticipado
+                }
             }
 
             val newIntent = Intent(context, NotificationReceiver::class.java).apply {
@@ -98,9 +111,11 @@ class NotificationReceiver : BroadcastReceiver() {
                 putExtra(EXTRA_MEDICINE_NAME, medicineName)
                 putExtra(EXTRA_MEDICINE_DOSAGE, dosage)
                 putExtra(EXTRA_MEDICINE_TIME, time)
+                putExtra("is_advance", isAdvance)
             }
 
-            val requestCode = medicineId.hashCode()
+            val suffix = if (isAdvance) "_advance_0" else "_exact_0"
+            val requestCode = (medicineId + suffix).hashCode()
             val pendingIntent = android.app.PendingIntent.getBroadcast(
                 context,
                 requestCode,
@@ -124,9 +139,13 @@ class NotificationReceiver : BroadcastReceiver() {
                 )
             }
 
-            Log.d("NotificationReceiver", "♻️ Alarma reprogramada para $medicineName a las $time mañana")
+            val alarmTime = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", java.util.Locale.getDefault()).format(calendar.time)
+            val tipo = if (isAdvance) "ANTICIPADO" else "EXACTO"
+            Log.d("NotificationReceiver", "♻️ Alarma $tipo reprogramada para $medicineName")
+            Log.d("NotificationReceiver", "   ├─ Horario: $time")
+            Log.d("NotificationReceiver", "   └─ Programada para: $alarmTime")
         } catch (e: Exception) {
-            Log.e("NotificationReceiver", "❌ Error reprogramando alarma: ${e.message}")
+            Log.e("NotificationReceiver", "❌ Error reprogramando alarma: ${e.message}", e)
         }
     }
 
