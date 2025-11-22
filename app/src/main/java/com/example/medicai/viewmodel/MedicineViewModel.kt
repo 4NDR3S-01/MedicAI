@@ -122,6 +122,30 @@ class MedicineViewModel(
             when (val result = repository.updateMedicine(id, medicine)) {
                 is Result.Success -> {
                     _successMessage.value = "${medicine.name} actualizado"
+                    
+                    // Cancelar alarmas anteriores
+                    AlarmScheduler.cancelMedicineReminders(
+                        context = getApplication(),
+                        medicineId = id
+                    )
+                    
+                    // Reprogramar alarmas si el medicamento está activo y notificaciones habilitadas
+                    val notificationsEnabled = UserPreferencesManager.areNotificationsEnabled(getApplication())
+                    
+                    if (result.data.active && notificationsEnabled) {
+                        try {
+                            AlarmScheduler.scheduleMedicineRemindersWithAdvance(
+                                context = getApplication(),
+                                medicineId = id,
+                                medicineName = result.data.name,
+                                dosage = result.data.dosage,
+                                times = result.data.times
+                            )
+                        } catch (e: Exception) {
+                            Log.e("MedicineViewModel", "Error reprogramando alarmas: ${e.message}")
+                        }
+                    }
+                    
                     loadMedicines(medicine.user_id)
                     onSuccess()
                 }

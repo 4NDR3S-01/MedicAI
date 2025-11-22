@@ -96,39 +96,19 @@ class AppointmentViewModel(
             _isLoading.value = true
             _error.value = null
 
-            Log.d("AppointmentViewModel", "=== AGREGANDO CITA ===")
-            Log.d("AppointmentViewModel", "Doctor: ${appointment.doctor_name}")
-            Log.d("AppointmentViewModel", "Fecha: ${appointment.date}")
-            Log.d("AppointmentViewModel", "Hora: ${appointment.time}")
-            Log.d("AppointmentViewModel", "Status: ${appointment.status}")
-
             when (val result = repository.addAppointment(appointment)) {
                 is Result.Success -> {
                     val appointmentId = result.data.id
                     val status = result.data.status
-                    
-                    Log.d("AppointmentViewModel", "✅ Cita guardada con ID: $appointmentId")
-                    Log.d("AppointmentViewModel", "Status de BD: $status")
-                    
                     _successMessage.value = "Cita con ${appointment.doctor_name} agendada"
 
                     // Verificar si las notificaciones están habilitadas
                     val notificationsEnabled = UserPreferencesManager.areNotificationsEnabled(getApplication())
                     
-                    Log.d("AppointmentViewModel", "Notificaciones habilitadas: $notificationsEnabled")
-                    Log.d("AppointmentViewModel", "Status == scheduled: ${status == "scheduled"}")
-                    
                     // Programar recordatorio de cita solo si está habilitado
                     if (status == "scheduled" && notificationsEnabled) {
                         try {
                             val reminderMinutes = UserPreferencesManager.getReminderMinutes(getApplication())
-                            
-                            Log.d("AppointmentViewModel", ">>> PROGRAMANDO ALARMA DE CITA <<<")
-                            Log.d("AppointmentViewModel", "Appointment ID: $appointmentId")
-                            Log.d("AppointmentViewModel", "Doctor: ${result.data.doctor_name}")
-                            Log.d("AppointmentViewModel", "Fecha: ${result.data.date}")
-                            Log.d("AppointmentViewModel", "Hora: ${result.data.time}")
-                            Log.d("AppointmentViewModel", "Recordatorio: $reminderMinutes min antes")
                             
                             AlarmScheduler.scheduleAppointmentReminder(
                                 context = getApplication(),
@@ -140,19 +120,8 @@ class AppointmentViewModel(
                                 location = result.data.location,
                                 minutesBefore = reminderMinutes
                             )
-                            
-                            Log.d("AppointmentViewModel", "✅ Alarma programada exitosamente")
                         } catch (e: Exception) {
-                            Log.e("AppointmentViewModel", "❌ ERROR programando recordatorio", e)
-                            Log.e("AppointmentViewModel", "Mensaje: ${e.message}")
-                            Log.e("AppointmentViewModel", "Stack: ${e.stackTraceToString()}")
-                        }
-                    } else {
-                        if (!notificationsEnabled) {
-                            Log.w("AppointmentViewModel", "⚠️ Notificaciones deshabilitadas")
-                        }
-                        if (status != "scheduled") {
-                            Log.w("AppointmentViewModel", "⚠️ Status no es 'scheduled': $status")
+                            Log.e("AppointmentViewModel", "Error programando recordatorio: ${e.message}")
                         }
                     }
 
@@ -161,7 +130,6 @@ class AppointmentViewModel(
                 }
                 is Result.Error -> {
                     _error.value = result.message
-                    Log.e("AppointmentViewModel", "Error: ${result.message}")
                 }
                 else -> {}
             }
@@ -181,6 +149,36 @@ class AppointmentViewModel(
             when (val result = repository.updateAppointment(id, appointment)) {
                 is Result.Success -> {
                     _successMessage.value = "Cita actualizada"
+                    
+                    // Cancelar alarma anterior
+                    AlarmScheduler.cancelAppointmentReminder(
+                        context = getApplication(),
+                        appointmentId = id
+                    )
+                    
+                    // Reprogramar alarma si el status es "scheduled" y notificaciones habilitadas
+                    val notificationsEnabled = UserPreferencesManager.areNotificationsEnabled(getApplication())
+                    val status = result.data.status
+                    
+                    if (status == "scheduled" && notificationsEnabled) {
+                        try {
+                            val reminderMinutes = UserPreferencesManager.getReminderMinutes(getApplication())
+                            
+                            AlarmScheduler.scheduleAppointmentReminder(
+                                context = getApplication(),
+                                appointmentId = id,
+                                doctorName = result.data.doctor_name,
+                                specialty = result.data.specialty,
+                                date = result.data.date,
+                                time = result.data.time,
+                                location = result.data.location,
+                                minutesBefore = reminderMinutes
+                            )
+                        } catch (e: Exception) {
+                            Log.e("AppointmentViewModel", "Error reprogramando alarma: ${e.message}")
+                        }
+                    }
+                    
                     loadAppointments(appointment.user_id)
                     onSuccess()
                 }

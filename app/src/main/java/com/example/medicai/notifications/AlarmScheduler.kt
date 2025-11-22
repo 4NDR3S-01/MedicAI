@@ -315,12 +315,6 @@ object AlarmScheduler {
             // Normalizar hora a formato HH:mm (remover segundos si vienen de Supabase)
             val normalizedTime = if (time.length > 5) time.substring(0, 5) else time
             
-            Log.d("AlarmScheduler", "=== PROGRAMANDO CITA ===")
-            Log.d("AlarmScheduler", "Hora original: '$time'")
-            Log.d("AlarmScheduler", "Hora normalizada: '$normalizedTime'")
-            Log.d("AlarmScheduler", "Fecha: $date")
-            Log.d("AlarmScheduler", "Recordatorio: $minutesBefore min antes")
-            
             val dateTimeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             val appointmentDateTime = dateTimeFormat.parse("$date $normalizedTime")
             
@@ -332,7 +326,6 @@ object AlarmScheduler {
             // Verificar que la cita sea futura
             val appointmentTimeMillis = appointmentDateTime.time
             if (appointmentTimeMillis < currentTimeMillis) {
-                Log.w("AlarmScheduler", "⚠️ La cita ya pasó, no se programa alarma")
                 return
             }
 
@@ -342,25 +335,12 @@ object AlarmScheduler {
                 add(Calendar.MINUTE, -minutesBefore)
             }
 
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-            val appointmentTimeStr = dateFormat.format(appointmentDateTime)
-            val reminderTimeStr = dateFormat.format(calendar.time)
-            val currentTimeStr = dateFormat.format(Date(currentTimeMillis))
-            
-            Log.d("AlarmScheduler", "Hora de la cita: $appointmentTimeStr")
-            Log.d("AlarmScheduler", "Recordatorio calculado: $reminderTimeStr")
-            Log.d("AlarmScheduler", "Hora actual: $currentTimeStr")
-
             // Si el recordatorio anticipado ya pasó, programar para la hora exacta de la cita
             val alarmTimeMillis = if (calendar.timeInMillis < currentTimeMillis) {
-                Log.d("AlarmScheduler", "⚠️ Recordatorio anticipado ya pasó, programando para hora exacta de la cita")
                 appointmentTimeMillis
             } else {
                 calendar.timeInMillis
             }
-            
-            val finalAlarmTime = dateFormat.format(Date(alarmTimeMillis))
-            Log.d("AlarmScheduler", "✅ Programando alarma para: $finalAlarmTime")
 
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = NotificationReceiver.ACTION_APPOINTMENT_REMINDER
