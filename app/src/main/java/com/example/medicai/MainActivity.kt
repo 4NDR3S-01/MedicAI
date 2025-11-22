@@ -127,9 +127,24 @@ class MainActivity : ComponentActivity() {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
                 android.util.Log.w("MainActivity", "⚠️ No hay permiso para alarmas exactas")
-                // Opcionalmente, puedes abrir ajustes para que el usuario conceda el permiso
-                // val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                // requestExactAlarmPermissionLauncher.launch(intent)
+                
+                // Mostrar diálogo explicativo
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("🔔 Permiso de Alarmas Necesario")
+                    .setMessage("MedicAI necesita permiso para programar alarmas exactas y enviarte recordatorios de medicamentos a tiempo.\n\nPor favor, activa 'Permitir alarmas y recordatorios' en la siguiente pantalla.")
+                    .setPositiveButton("Ir a Ajustes") { _, _ ->
+                        try {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                android.net.Uri.parse("package:$packageName")
+                            )
+                            requestExactAlarmPermissionLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainActivity", "Error abriendo ajustes de alarmas", e)
+                        }
+                    }
+                    .setNegativeButton("Ahora no", null)
+                    .show()
             } else {
                 android.util.Log.d("MainActivity", "✅ Permiso de alarmas exactas concedido")
             }

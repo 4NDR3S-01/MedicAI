@@ -67,6 +67,67 @@ class NotificationReceiver : BroadcastReceiver() {
             dosage = dosage,
             time = time
         )
+
+        // ✅ Reprogramar la alarma para mañana a la misma hora
+        reprogramMedicineAlarm(context, medicineId, medicineName, dosage, time)
+    }
+
+    /**
+     * Reprogramar la alarma de medicamento para el día siguiente
+     */
+    private fun reprogramMedicineAlarm(
+        context: Context,
+        medicineId: String,
+        medicineName: String,
+        dosage: String,
+        time: String
+    ) {
+        try {
+            val calendar = java.util.Calendar.getInstance().apply {
+                val timeParts = time.split(":")
+                set(java.util.Calendar.HOUR_OF_DAY, timeParts[0].toInt())
+                set(java.util.Calendar.MINUTE, timeParts[1].toInt())
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+                add(java.util.Calendar.DAY_OF_YEAR, 1) // Mañana
+            }
+
+            val newIntent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_MEDICINE_REMINDER
+                putExtra(EXTRA_MEDICINE_ID, medicineId)
+                putExtra(EXTRA_MEDICINE_NAME, medicineName)
+                putExtra(EXTRA_MEDICINE_DOSAGE, dosage)
+                putExtra(EXTRA_MEDICINE_TIME, time)
+            }
+
+            val requestCode = medicineId.hashCode()
+            val pendingIntent = android.app.PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                newIntent,
+                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    pendingIntent
+                )
+            }
+
+            Log.d("NotificationReceiver", "♻️ Alarma reprogramada para $medicineName a las $time mañana")
+        } catch (e: Exception) {
+            Log.e("NotificationReceiver", "❌ Error reprogramando alarma: ${e.message}")
+        }
     }
 
     private fun handleAppointmentReminder(context: Context, intent: Intent) {

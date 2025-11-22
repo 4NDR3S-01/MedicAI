@@ -26,6 +26,19 @@ object AlarmScheduler {
     ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+        // Verificar si se pueden programar alarmas exactas en Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.e("AlarmScheduler", "❌ No hay permiso para programar alarmas exactas")
+                android.widget.Toast.makeText(
+                    context,
+                    "⚠️ Activa los permisos de alarmas en Ajustes para recibir notificaciones",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+        }
+
         times.forEachIndexed { index, time ->
             try {
                 val calendar = Calendar.getInstance().apply {
@@ -57,32 +70,54 @@ object AlarmScheduler {
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
                 )
 
-                // Programar alarma repetitiva diaria
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setRepeating(
-                            AlarmManager.RTC_WAKEUP,
-                            calendar.timeInMillis,
-                            AlarmManager.INTERVAL_DAY,
-                            pendingIntent
-                        )
-                        Log.d("AlarmScheduler", "⏰ Alarma programada para $medicineName a las $time")
-                    } else {
-                        Log.w("AlarmScheduler", "⚠️ No hay permiso para alarmas exactas")
-                    }
-                } else {
-                    alarmManager.setRepeating(
+                // Programar alarma exacta que se repite diariamente
+                // Usar setExactAndAllowWhileIdle para Android 12+ y setExact para anteriores
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         calendar.timeInMillis,
-                        AlarmManager.INTERVAL_DAY,
                         pendingIntent
                     )
-                    Log.d("AlarmScheduler", "⏰ Alarma programada para $medicineName a las $time")
+                    
+                    // Programar la siguiente alarma (mañana)
+                    scheduleNextDayAlarm(context, alarmManager, calendar, pendingIntent, medicineId, index)
+                } else {
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
                 }
+                
+                Log.d("AlarmScheduler", "⏰ Alarma programada para $medicineName a las $time (${calendar.time})")
 
             } catch (e: Exception) {
                 Log.e("AlarmScheduler", "❌ Error programando alarma: ${e.message}", e)
             }
+        }
+    }
+
+    /**
+     * Programar la siguiente alarma para el día siguiente
+     * Esto permite tener alarmas diarias sin usar setRepeating
+     */
+    private fun scheduleNextDayAlarm(
+        context: Context,
+        alarmManager: AlarmManager,
+        currentCalendar: Calendar,
+        pendingIntent: PendingIntent,
+        medicineId: String,
+        index: Int
+    ) {
+        val nextDayCalendar = currentCalendar.clone() as Calendar
+        nextDayCalendar.add(Calendar.DAY_OF_YEAR, 1)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                nextDayCalendar.timeInMillis,
+                pendingIntent
+            )
         }
     }
 
