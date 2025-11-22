@@ -856,6 +856,23 @@ private fun AvatarPickerDialog(
         }
     }
 
+    // Launcher para solicitar permiso de almacenamiento/galería
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permiso concedido, abrir galería
+            galleryLauncher.launch("image/*")
+        } else {
+            // Permiso denegado
+            android.widget.Toast.makeText(
+                context,
+                "Se necesita permiso de almacenamiento para seleccionar fotos",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
     // Launcher para tomar foto con la cámara
     var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -978,7 +995,17 @@ private fun AvatarPickerDialog(
 
                             // Botón para galería
                             ElevatedCard(
-                                onClick = { galleryLauncher.launch("image/*") },
+                                onClick = {
+                                    // En Android 13+ (API 33+) no se necesita permiso READ_EXTERNAL_STORAGE
+                                    // Se usa READ_MEDIA_IMAGES que ya está en el manifest
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                        // Android 13+: solicitar READ_MEDIA_IMAGES
+                                        galleryPermissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                                    } else {
+                                        // Android 12 y anteriores: solicitar READ_EXTERNAL_STORAGE
+                                        galleryPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                    }
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(120.dp),
