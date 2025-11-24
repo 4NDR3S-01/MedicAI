@@ -18,19 +18,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Pantalla para mostrar todos los sensores disponibles en el dispositivo
+ * Pantalla para mostrar los sensores que utiliza la aplicación
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SensorListScreen() {
     val context = LocalContext.current
     val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
-    val sensors = remember { sensorManager.getSensorList(Sensor.TYPE_ALL) }
+
+    // Solo mostrar los sensores que realmente usa la aplicación
+    val usedSensorTypes = listOf(
+        Sensor.TYPE_LIGHT  // Para ajuste automático de brillo
+        // La geolocalización usa GPS (no es un sensor de hardware listado aquí)
+    )
+
+    val sensors = remember {
+        usedSensorTypes.mapNotNull { type ->
+            sensorManager.getDefaultSensor(type)
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sensores del Dispositivo") },
+                title = { Text("Sensores en Uso") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -56,13 +67,13 @@ fun SensorListScreen() {
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "Total de sensores: ${sensors.size}",
+                            text = "Sensores activos: ${sensors.size + 1}",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Estos son todos los sensores disponibles en tu dispositivo",
+                            text = "Estos son los sensores que utiliza activamente MedicAI",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                         )
@@ -70,8 +81,19 @@ fun SensorListScreen() {
                 }
             }
 
+            // Mostrar sensores de hardware detectados
             items(sensors) { sensor ->
                 SensorCard(sensor = sensor)
+            }
+
+            // Agregar tarjeta para geolocalización (GPS)
+            item {
+                CustomSensorCard(
+                    name = "Geolocalización GPS",
+                    typeName = "Sensor de Ubicación",
+                    description = "Usado para detectar ubicación en citas médicas",
+                    icon = Icons.Filled.MyLocation
+                )
             }
         }
     }
@@ -154,7 +176,7 @@ private fun getSensorIcon(type: Int): ImageVector {
         Sensor.TYPE_PROXIMITY -> Icons.Filled.Sensors
         Sensor.TYPE_GRAVITY -> Icons.Filled.Height
         Sensor.TYPE_LINEAR_ACCELERATION -> Icons.Filled.TrendingUp
-        Sensor.TYPE_ROTATION_VECTOR -> Icons.Filled.ThreeDRotation
+        Sensor.TYPE_ROTATION_VECTOR -> Icons.Filled.ScreenRotation
         Sensor.TYPE_AMBIENT_TEMPERATURE -> Icons.Filled.Thermostat
         Sensor.TYPE_STEP_COUNTER -> Icons.Filled.DirectionsWalk
         Sensor.TYPE_STEP_DETECTOR -> Icons.Filled.DirectionsRun
@@ -193,6 +215,57 @@ private fun getSensorTypeName(type: Int): String {
         Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT -> "Detección Fuera del Cuerpo"
         Sensor.TYPE_ACCELEROMETER_UNCALIBRATED -> "Acelerómetro (sin calibrar)"
         else -> "Tipo desconocido ($type)"
+    }
+}
+
+@Composable
+private fun CustomSensorCard(
+    name: String,
+    typeName: String,
+    description: String,
+    icon: ImageVector
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = typeName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
+        }
     }
 }
 

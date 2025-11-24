@@ -18,7 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,7 +25,6 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import kotlinx.coroutines.tasks.await
 import java.util.Locale
 
 /**
@@ -44,7 +42,6 @@ fun LocationPickerDialog(
     var isLoadingGPS by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var detectedAddress by remember { mutableStateOf<String?>(null) }
-    var showPermissionRationale by remember { mutableStateOf(false) }
 
     // Ubicaciones sugeridas comunes
     val suggestedLocations = remember {
@@ -79,7 +76,6 @@ fun LocationPickerDialog(
             else -> {
                 isLoadingGPS = false
                 errorMessage = "Se necesitan permisos de ubicación para usar el GPS"
-                showPermissionRationale = true
             }
         }
     }
@@ -368,6 +364,7 @@ private fun getCurrentLocation(
 /**
  * Convierte coordenadas GPS a dirección legible
  */
+@Suppress("DEPRECATION")
 private fun getAddressFromLocation(
     context: Context,
     location: Location,
@@ -375,24 +372,24 @@ private fun getAddressFromLocation(
 ) {
     try {
         val geocoder = Geocoder(context, Locale.getDefault())
-        geocoder.getFromLocation(location.latitude, location.longitude, 1) { addresses ->
-            if (addresses.isNotEmpty()) {
-                val address = addresses[0]
-                val addressParts = mutableListOf<String>()
+        // Usar el método compatible con API 24+
+        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+        if (!addresses.isNullOrEmpty()) {
+            val address = addresses[0]
+            val addressParts = mutableListOf<String>()
 
-                // Construir dirección completa
-                address.thoroughfare?.let { addressParts.add(it) }
-                address.subThoroughfare?.let { addressParts.add(it) }
-                address.locality?.let { addressParts.add(it) }
-                address.adminArea?.let { addressParts.add(it) }
+            // Construir dirección completa
+            address.thoroughfare?.let { addressParts.add(it) }
+            address.subThoroughfare?.let { addressParts.add(it) }
+            address.locality?.let { addressParts.add(it) }
+            address.adminArea?.let { addressParts.add(it) }
 
-                val fullAddress = addressParts.joinToString(", ")
-                onResult(if (fullAddress.isNotEmpty()) fullAddress else null)
-            } else {
-                onResult(null)
-            }
+            val fullAddress = addressParts.joinToString(", ")
+            onResult(if (fullAddress.isNotEmpty()) fullAddress else null)
+        } else {
+            onResult(null)
         }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         onResult(null)
     }
 }

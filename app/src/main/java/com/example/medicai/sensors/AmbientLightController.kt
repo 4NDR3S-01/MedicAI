@@ -20,9 +20,9 @@ import kotlin.math.abs
  */
 @Composable
 fun AmbientLightBrightnessController(
-    minBrightness: Float = 0.15f,  // Brillo mínimo (poca luz)
+    minBrightness: Float = 0.1f,   // Brillo mínimo más bajo (poca luz)
     maxBrightness: Float = 1.0f,    // Brillo máximo (mucha luz)
-    smoothing: Float = 0.25f        // Factor de suavizado para evitar cambios bruscos
+    smoothing: Float = 0.3f         // Factor de suavizado
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context as? Activity }
@@ -39,7 +39,6 @@ fun AmbientLightBrightnessController(
             val lightSensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
 
             if (lightSensor == null) {
-                // Dispositivo no tiene sensor de luz
                 onDispose { }
             } else {
                 val listener = object : SensorEventListener {
@@ -54,20 +53,24 @@ fun AmbientLightBrightnessController(
                             prev * (1f - smoothing) + target * smoothing
                         } ?: target
 
-                        // Aplicar solo si diferencia significativa (> 0.02) para evitar parpadeos constantes
-                        if (lastBrightness == null || abs(smoothed - lastBrightness!!) > 0.02f) {
+                        // Aplicar si hay diferencia significativa
+                        if (lastBrightness == null || abs(smoothed - lastBrightness!!) > 0.01f) {
                             applyWindowBrightness(act, smoothed)
                             lastBrightness = smoothed
                         }
                     }
 
                     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                        // No necesitamos hacer nada aquí
+                        // No se requiere acción
                     }
                 }
 
-                // Registrar listener (SENSOR_DELAY_NORMAL es suficiente para brillo)
-                sensorManager.registerListener(listener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+                // Registrar listener
+                sensorManager.registerListener(
+                    listener,
+                    lightSensor,
+                    SensorManager.SENSOR_DELAY_NORMAL
+                )
 
                 onDispose {
                     sensorManager.unregisterListener(listener)
@@ -89,9 +92,9 @@ fun AmbientLightBrightnessController(
  * - 1000+ lux: Mucha luz (día soleado)
  */
 private fun mapLuxToBrightness(lux: Float, minB: Float, maxB: Float): Float {
-    // Mapeo logarítmico para mejor respuesta visual
-    val low = 10f      // 10 lux o menos = brillo mínimo
-    val high = 1000f   // 1000 lux o más = brillo máximo
+    // Mapeo más agresivo para que los cambios sean más notorios
+    val low = 5f       // 5 lux o menos = brillo mínimo
+    val high = 500f    // 500 lux o más = brillo máximo (reducido de 1000 para ser más sensible)
 
     // Interpolación lineal entre low y high
     val t = ((lux - low) / (high - low)).coerceIn(0f, 1f)
@@ -110,9 +113,8 @@ private fun applyWindowBrightness(activity: Activity, brightness: Float) {
         // screenBrightness: -1 = auto, 0 = mínimo, 1 = máximo
         attrs.screenBrightness = brightness.coerceIn(0f, 1f)
         window.attributes = attrs
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         // Silencioso: no bloquear UI si falla
-        e.printStackTrace()
     }
 }
 

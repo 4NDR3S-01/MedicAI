@@ -41,6 +41,7 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.data.models.PredefinedAvatars
+import com.example.medicai.sensors.SensorListScreen
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
@@ -65,6 +66,7 @@ fun ProfileScreen(
     var showDeleteAccountDialog by rememberSaveable { mutableStateOf(false) }
     var showHelpDialog by rememberSaveable { mutableStateOf(false) }
     var showChangePasswordDialog by rememberSaveable { mutableStateOf(false) }
+    var showSensorList by rememberSaveable { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -167,6 +169,15 @@ fun ProfileScreen(
                     onClick = {
                         Toast.makeText(context, "MedicAI v1.0.0 - Tu asistente médico", Toast.LENGTH_SHORT).show()
                     }
+                )
+            }
+
+            item {
+                ProfileMenuItem(
+                    icon = Icons.Filled.Sensors,
+                    title = "Sensores en Uso",
+                    subtitle = "Ver sensores que utiliza la app",
+                    onClick = { showSensorList = true }
                 )
             }
 
@@ -298,6 +309,28 @@ fun ProfileScreen(
                         Toast.makeText(context, "❌ Error: $err", Toast.LENGTH_LONG).show()
                     }
                 )
+            }
+        )
+    }
+
+    // Mostrar pantalla de sensores en modo diálogo/fullscreen
+    if (showSensorList) {
+        AlertDialog(
+            onDismissRequest = { showSensorList = false },
+            confirmButton = {
+                TextButton(onClick = { showSensorList = false }) {
+                    Text("Cerrar")
+                }
+            },
+            title = null,
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(500.dp)
+                ) {
+                    SensorListScreen()
+                }
             }
         )
     }

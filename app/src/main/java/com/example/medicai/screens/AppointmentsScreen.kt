@@ -29,6 +29,7 @@ import com.example.medicai.data.models.Appointment
 import com.example.medicai.data.models.AppointmentRequest
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.viewmodel.AppointmentViewModel
+import com.example.medicai.sensors.LocationPickerDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -1254,10 +1255,10 @@ private fun ModernAddAppointmentDialog(
 
     // Location Picker Dialog
     if (showLocationPicker) {
-        GoogleMapsLocationPickerDialog(
+        LocationPickerDialog(
             currentLocation = location,
             onDismiss = { showLocationPicker = false },
-            onConfirm = { selectedLocation ->
+            onLocationSelected = { selectedLocation ->
                 location = selectedLocation
                 showLocationPicker = false
             }
@@ -1631,10 +1632,10 @@ private fun ModernEditAppointmentDialog(
 
     // Location Picker Dialog
     if (showLocationPicker) {
-        GoogleMapsLocationPickerDialog(
+        LocationPickerDialog(
             currentLocation = location,
             onDismiss = { showLocationPicker = false },
-            onConfirm = { selectedLocation ->
+            onLocationSelected = { selectedLocation ->
                 location = selectedLocation
                 showLocationPicker = false
             }

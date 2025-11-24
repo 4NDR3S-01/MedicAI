@@ -76,6 +76,7 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Activar sensor de luz ambiental para ajustar brillo automáticamente
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 180.dp, bottom = 0.dp)
@@ -616,7 +617,7 @@ private fun ModernMedicineCard(medicine: Medicine) {
                     }
                 }
 
-                // Información de próxima toma con badge
+                // Información de próxima toma
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -645,36 +646,15 @@ private fun ModernMedicineCard(medicine: Medicine) {
                         )
                     }
 
-                    // Badge de frecuencia (solo mostrar si hay datos)
-                    val frequencyText = medicine.frequency.ifBlank { 
-                        // Si frequency está vacío, calcular desde times
-                        val dosesPerDay = medicine.times.size
-                        when {
-                            dosesPerDay == 0 -> ""
-                            dosesPerDay == 1 -> "Cada 24 hrs"
-                            dosesPerDay == 2 -> "Cada 12 hrs"
-                            dosesPerDay == 3 -> "Cada 8 hrs"
-                            dosesPerDay == 4 -> "Cada 6 hrs"
-                            dosesPerDay == 6 -> "Cada 4 hrs"
-                            else -> "$dosesPerDay veces al día"
-                        }
-                    }
-                    
-                    if (frequencyText.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFFFE0B2),
-                            modifier = Modifier.height(IntrinsicSize.Min)
-                        ) {
-                            Text(
-                                text = frequencyText,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF5D4037),
-                                maxLines = 1
-                            )
-                        }
+                    // Mostrar número de tomas al día
+                    val dosesPerDay = medicine.times.size
+                    if (dosesPerDay > 0) {
+                        Text(
+                            text = "${dosesPerDay}x día",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
                     }
                 }
             }

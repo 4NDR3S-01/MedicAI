@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.example.medicai.ui.theme.MedicAITheme
+import com.example.medicai.sensors.AmbientLightBrightnessController
 
 class MainActivity : ComponentActivity() {
 
@@ -84,6 +85,9 @@ class MainActivity : ComponentActivity() {
             }
 
             MedicAITheme {
+                // Activar sensor de luz ambiental en toda la aplicación
+                AmbientLightBrightnessController()
+
                 AuthNavigation()
             }
         }

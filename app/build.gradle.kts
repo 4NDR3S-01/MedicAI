@@ -108,6 +108,9 @@ dependencies {
     // Coil para cargar imágenes desde URLs
     implementation("io.coil-kt:coil-compose:2.5.0")
 
+    // Google Play Services Location para geolocalización
+    implementation("com.google.android.gms:play-services-location:21.1.0")
+
     // Test / debug
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
