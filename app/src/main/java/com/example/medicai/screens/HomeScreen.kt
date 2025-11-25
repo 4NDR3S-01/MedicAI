@@ -95,7 +95,7 @@ fun HomeScreen(
                         StatsCards(
                             medicinesCount = medicines.count { it.active },
                             appointmentsCount = appointments.size,
-                            activeReminders = medicines.count { it.active }
+                            activeReminders = medicines.count { it.active } + appointments.size
                         )
                     }
                 }
