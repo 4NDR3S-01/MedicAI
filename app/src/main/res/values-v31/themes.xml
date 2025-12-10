@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema de Splash Screen para Android 12+ (API 31+) -->
+    <!-- Diseño unificado con SplashScreen de Compose -->
+    <style name="Theme.MedicAI.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.MedicAI</item>
+        <!-- Configuración para transición fluida -->
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+</resources>

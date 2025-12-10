@@ -8,6 +8,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelProvider
@@ -156,13 +166,15 @@ fun MedicinesScreen(
             }
         }
 
-        // FAB moderno flotante
-        ModernFloatingActionButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-        )
+        // FAB moderno flotante - Solo mostrar cuando hay medicamentos o no está en estado vacío
+        if (!isLoading && filteredMedicines.isNotEmpty()) {
+            ModernFloatingActionButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp)
+            )
+        }
     }
 
     // Diálogo para agregar medicamento
@@ -919,7 +931,20 @@ private fun ModernAddMedicineDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Nombre del medicamento *") },
+                        label = { 
+                            Text(
+                                "Nombre del medicamento *",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
+                        placeholder = { 
+                            Text(
+                                "Ej: Paracetamol",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
                         leadingIcon = {
                             Icon(Icons.Filled.MedicalServices, contentDescription = null)
                         },
@@ -933,7 +958,20 @@ private fun ModernAddMedicineDialog(
                     OutlinedTextField(
                         value = dosage,
                         onValueChange = { dosage = it },
-                        label = { Text("Dosis (ej: 500mg, 1 comprimido) *") },
+                        label = { 
+                            Text(
+                                "Dosis *",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
+                        placeholder = { 
+                            Text(
+                                "Ej: 500mg, 1 comprimido",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
                         leadingIcon = {
                             Icon(Icons.Filled.Colorize, contentDescription = null)
                         },
@@ -1082,8 +1120,7 @@ private fun ModernAddMedicineDialog(
                         },
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        supportingText = { Text("Ej: Tomar con alimentos") }
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
             }
@@ -1195,6 +1232,8 @@ private fun ModernEditMedicineDialog(
 
     var notes by rememberSaveable { mutableStateOf(medicine.notes ?: "") }
     var isActive by rememberSaveable { mutableStateOf(medicine.active) }
+    val notesFocusRequester = remember { FocusRequester() }
+    val scrollState = rememberLazyListState()
 
     // Crear startTime desde hora y minuto seleccionados
     val startTime = remember(selectedHour, selectedMinute) {
@@ -1236,7 +1275,20 @@ private fun ModernEditMedicineDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Nombre del medicamento *") },
+                        label = { 
+                            Text(
+                                "Nombre del medicamento *",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
+                        placeholder = { 
+                            Text(
+                                "Ej: Paracetamol",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
                         leadingIcon = {
                             Icon(Icons.Filled.MedicalServices, contentDescription = null)
                         },
@@ -1250,7 +1302,20 @@ private fun ModernEditMedicineDialog(
                     OutlinedTextField(
                         value = dosage,
                         onValueChange = { dosage = it },
-                        label = { Text("Dosis *") },
+                        label = { 
+                            Text(
+                                "Dosis (ej: 500mg, 1 comprimido) *",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
+                        placeholder = { 
+                            Text(
+                                "Ej: 500mg, 1 comprimido",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            ) 
+                        },
                         leadingIcon = {
                             Icon(Icons.Filled.Colorize, contentDescription = null)
                         },
@@ -1384,17 +1449,62 @@ private fun ModernEditMedicineDialog(
                 }
 
                 item {
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Notas (opcional)") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Notes, contentDescription = null)
-                        },
-                        maxLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(notesFocusRequester),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = {
+                            notesFocusRequester.requestFocus()
+                            CoroutineScope(Dispatchers.Main).launch {
+                                delay(100)
+                                scrollState.animateScrollToItem(6)
+                            }
+                        }
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Notes,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Notas (opcional)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            BasicTextField(
+                                value = notes,
+                                onValueChange = { notes = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                maxLines = 3,
+                                decorationBox = { innerTextField ->
+                                    Box {
+                                        if (notes.isEmpty()) {
+                                            Text(
+                                                text = "Ej: Tomar con alimentos",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
         },

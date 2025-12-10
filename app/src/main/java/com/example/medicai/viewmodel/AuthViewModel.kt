@@ -164,45 +164,106 @@ class AuthViewModel(
     /**
      * Verificar si hay un usuario con sesión activa
      * ✅ Sincroniza preferencias en caché local al cargar usuario
+     * ✅ Intenta refrescar la sesión si está expirada
+     * ✅ Intenta obtener el usuario incluso si isUserLoggedIn() falla temporalmente
      */
-    private fun checkCurrentUser() {
+    private fun checkCurrentUser(retryCount: Int = 0) {
         viewModelScope.launch {
-            Log.d("AuthViewModel", "🔍 Verificando usuario actual...")
+            try {
+                Log.d("AuthViewModel", "🔍 Verificando usuario actual...")
+                
+                // Asegurarse de que el estado esté en Loading mientras verificamos
+                _authState.value = AuthState.Loading
 
-            // Primero verificar si hay sesión en Supabase
-            val isLoggedIn = repository.isUserLoggedIn()
-            Log.d("AuthViewModel", "📱 Supabase session exists: $isLoggedIn")
+                // Primero verificar si hay sesión guardada localmente (sin intentar refrescar aún)
+                val hasLocalSession = repository.hasLocalSession()
+                Log.d("AuthViewModel", "📱 Sesión local encontrada: $hasLocalSession")
 
-            if (!isLoggedIn) {
-                _authState.value = AuthState.Error("No hay sesión activa")
-                Log.d("AuthViewModel", "❌ No hay sesión en Supabase")
-                return@launch
-            }
+                // Si no hay sesión local, no hay nada que verificar
+                if (!hasLocalSession) {
+                    _authState.value = AuthState.Error("No hay sesión activa")
+                    Log.d("AuthViewModel", "❌ No hay sesión local guardada")
+                    return@launch
+                }
 
-            // Si hay sesión, obtener el perfil del usuario
-            when (val result = repository.getCurrentUser()) {
-                is Result.Success -> {
-                    result.data?.let { user ->
-                        _currentUser.value = user
-                        _authState.value = AuthState.Success(user)
+                // Si hay sesión local, intentar obtener el perfil del usuario directamente
+                // Esto es más confiable que depender solo de isUserLoggedIn()
+                when (val result = repository.getCurrentUser()) {
+                    is Result.Success -> {
+                        result.data?.let { user ->
+                            _currentUser.value = user
+                            _authState.value = AuthState.Success(user)
+                            
+                            // ✅ Sincronizar preferencias en caché local
+                            syncUserPreferencesToCache(user)
+                            
+                            // Log sin información sensible en producción
+                            Log.d("AuthViewModel", "✅ Sesión activa encontrada para usuario ID: ${user.id.take(8)}...")
+                            Log.d("AuthViewModel", "👤 Usuario autenticado correctamente")
+                        } ?: run {
+                            // Si no se puede obtener el perfil pero hay sesión local,
+                            // intentar verificar la sesión con isUserLoggedIn()
+                            Log.w("AuthViewModel", "⚠️ No se pudo obtener perfil, verificando sesión...")
+                            val isLoggedIn = repository.isUserLoggedIn()
+                            if (!isLoggedIn) {
+                                _authState.value = AuthState.Error("Sesión expirada")
+                                Log.d("AuthViewModel", "❌ Sesión expirada")
+                            } else {
+                                _authState.value = AuthState.Error("Perfil no encontrado")
+                                Log.d("AuthViewModel", "❌ Sesión existe pero perfil no encontrado")
+                            }
+                        }
+                    }
+                    is Result.Error -> {
+                        // Si hay error al obtener el perfil, verificar si la sesión está realmente expirada
+                        Log.e("AuthViewModel", "❌ Error al obtener usuario: ${result.message}")
                         
-                        // ✅ Sincronizar preferencias en caché local
-                        syncUserPreferencesToCache(user)
-                        
-                        Log.d("AuthViewModel", "✅ Sesión activa encontrada: ${user.email}")
-                        Log.d("AuthViewModel", "👤 Usuario: ${user.full_name}")
-                    } ?: run {
-                        _authState.value = AuthState.Error("Perfil no encontrado")
-                        Log.d("AuthViewModel", "❌ Sesión existe pero perfil no encontrado")
+                        // Verificar si el error es por sesión expirada o problema de red
+                        val errorMessage = result.message?.lowercase() ?: ""
+                        if (errorMessage.contains("expired") || errorMessage.contains("unauthorized") || 
+                            errorMessage.contains("401") || errorMessage.contains("invalid")) {
+                            // Sesión realmente expirada
+                            _authState.value = AuthState.Error("Sesión expirada")
+                            Log.d("AuthViewModel", "❌ Sesión expirada")
+                        } else {
+                            // Puede ser un problema de red temporal, intentar verificar la sesión
+                            val stillLoggedIn = repository.isUserLoggedIn()
+                            if (!stillLoggedIn) {
+                                _authState.value = AuthState.Error("Sesión expirada")
+                                Log.d("AuthViewModel", "❌ Sesión expirada después del error")
+                            } else {
+                                // Problema temporal, intentar reintentar (máximo 2 reintentos)
+                                if (retryCount < 2) {
+                                    Log.w("AuthViewModel", "⚠️ Error temporal, puede ser problema de red. Reintentando... (intento ${retryCount + 1}/2)")
+                                    _authState.value = AuthState.Loading
+                                    // Reintentar después de un breve delay
+                                    kotlinx.coroutines.delay(1000)
+                                    checkCurrentUser(retryCount + 1) // Reintentar con contador incrementado
+                                } else {
+                                    // Demasiados reintentos, mostrar error de conexión
+                                    Log.e("AuthViewModel", "❌ Error persistente después de ${retryCount + 1} intentos")
+                                    _authState.value = AuthState.Error("Error de conexión. Por favor verifica tu internet.")
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        _authState.value = AuthState.Error("Error desconocido")
+                        Log.e("AuthViewModel", "❌ Error desconocido al verificar usuario")
                     }
                 }
-                is Result.Error -> {
-                    _authState.value = AuthState.Error(result.message)
-                    Log.e("AuthViewModel", "❌ Error al verificar usuario: ${result.message}")
-                }
-                else -> {
-                    _authState.value = AuthState.Error("Error desconocido")
-                    Log.e("AuthViewModel", "❌ Error desconocido al verificar usuario")
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "❌ Excepción inesperada al verificar usuario: ${e.message}", e)
+                // Verificar si hay sesión local antes de mostrar error
+                val hasLocalSession = repository.hasLocalSession()
+                if (hasLocalSession && retryCount < 2) {
+                    // Hay sesión local, puede ser error temporal, reintentar (máximo 2 reintentos)
+                    Log.w("AuthViewModel", "⚠️ Excepción pero hay sesión local, reintentando... (intento ${retryCount + 1}/2)")
+                    _authState.value = AuthState.Loading
+                    kotlinx.coroutines.delay(1000)
+                    checkCurrentUser(retryCount + 1) // Reintentar con contador incrementado
+                } else {
+                    _authState.value = AuthState.Error("Error al verificar sesión: ${e.message}")
                 }
             }
         }
@@ -214,7 +275,9 @@ class AuthViewModel(
      */
     fun login(email: String, password: String) {
         viewModelScope.launch {
-            Log.d("AuthViewModel", "Iniciando login para: $email")
+            // Log sin información sensible
+            val emailDomain = email.substringAfter("@", "unknown")
+            Log.d("AuthViewModel", "Iniciando login para dominio: @$emailDomain")
             _loginState.value = Result.Loading
             _authState.value = AuthState.Loading
 
@@ -455,7 +518,7 @@ class AuthViewModel(
     /**
      * Verificar si el usuario está autenticado
      */
-    fun isUserLoggedIn(): Boolean {
+    suspend fun isUserLoggedIn(): Boolean {
         return repository.isUserLoggedIn()
     }
 }

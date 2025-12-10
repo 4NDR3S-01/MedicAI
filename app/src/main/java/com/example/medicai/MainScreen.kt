@@ -112,10 +112,21 @@ fun MainScreen(
             }
         }
     ) { paddingValues ->
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
+        
+        // Para la pantalla de IA, no aplicar paddingValues del Scaffold
+        // porque maneja su propio layout con input bar posicionado absolutamente
+        val shouldApplyPadding = currentRoute != AppScreen.AIAssistant.route
+        
         NavHost(
             navController = navController,
             startDestination = AppScreen.Home.route,
-            modifier = Modifier.padding(paddingValues)
+            modifier = if (shouldApplyPadding) {
+                Modifier.padding(paddingValues)
+            } else {
+                Modifier // Sin padding para IA, maneja su propio layout
+            }
         ) {
             // Pantalla de Inicio (Home)
             composable(AppScreen.Home.route) {
@@ -138,7 +149,7 @@ fun MainScreen(
                 )
             }
 
-            // Asistente IA
+            // Asistente IA - No usa paddingValues del Scaffold
             composable(AppScreen.AIAssistant.route) {
                 AIAssistantScreen(
                     authViewModel = authViewModel

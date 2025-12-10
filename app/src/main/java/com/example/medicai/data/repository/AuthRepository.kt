@@ -107,7 +107,9 @@ class AuthRepository {
      */
     suspend fun login(email: String, password: String): Result<UserProfile> {
         return try {
-            Log.d("AuthRepository", "Iniciando sesión para: $email")
+            // Log sin información sensible (solo dominio del email)
+            val emailDomain = email.substringAfter("@", "unknown")
+            Log.d("AuthRepository", "Iniciando sesión para dominio: @$emailDomain")
 
             // 1. Autenticar con Supabase
             auth.signInWith(Email) {
@@ -153,11 +155,21 @@ class AuthRepository {
 
     /**
      * Cerrar sesión
+     * Limpia completamente la sesión local y remota
      */
     suspend fun logout(): Result<Unit> {
         return try {
-            Log.d("AuthRepository", "Cerrando sesión")
+            Log.d("AuthRepository", "Cerrando sesión...")
             auth.signOut()
+            
+            // Verificar que la sesión se limpió correctamente
+            val sessionAfterLogout = auth.currentSessionOrNull()
+            if (sessionAfterLogout == null) {
+                Log.d("AuthRepository", "✅ Sesión cerrada exitosamente - no hay sesión local")
+            } else {
+                Log.w("AuthRepository", "⚠️ Sesión cerrada pero aún existe sesión local (puede ser temporal)")
+            }
+            
             Result.Success(Unit)
         } catch (e: Exception) {
             Log.e("AuthRepository", "Error al cerrar sesión: ${e.message}", e)
@@ -323,16 +335,94 @@ class AuthRepository {
     }
 
     /**
-     * Verificar si hay una sesión activa
+     * Verificar si hay una sesión guardada localmente (sin intentar refrescar)
+     * Útil para verificar rápidamente si hay una sesión antes de intentar operaciones costosas
+     * No es suspend porque currentSessionOrNull() no es suspend
      */
-    fun isUserLoggedIn(): Boolean {
-        val session = auth.currentSessionOrNull()
-        val isLoggedIn = session != null
-        Log.d("AuthRepository", "🔐 Verificando sesión: ${if (isLoggedIn) "✅ Activa" else "❌ Inactiva"}")
-        if (session != null) {
-            Log.d("AuthRepository", "📱 User ID: ${auth.currentUserOrNull()?.id}")
+    fun hasLocalSession(): Boolean {
+        return try {
+            val session = auth.currentSessionOrNull()
+            val hasSession = session != null
+            Log.d("AuthRepository", "🔍 Verificación local de sesión: ${if (hasSession) "✅ Encontrada" else "❌ No encontrada"}")
+            hasSession
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "❌ Error al verificar sesión local: ${e.message}", e)
+            false
         }
-        return isLoggedIn
+    }
+
+    /**
+     * Verificar si hay una sesión activa
+     * Intenta refrescar la sesión si está expirada antes de verificar
+     * Si hay una sesión guardada localmente, retorna true incluso si el refresh falla temporalmente
+     */
+    suspend fun isUserLoggedIn(): Boolean {
+        return try {
+            // Primero verificar si hay una sesión guardada localmente
+            val session = auth.currentSessionOrNull()
+            
+            if (session == null) {
+                Log.d("AuthRepository", "🔐 No hay sesión guardada")
+                return false
+            }
+            
+            Log.d("AuthRepository", "🔍 Sesión encontrada localmente, verificando validez...")
+            
+            // Intentar refrescar la sesión si existe (puede estar expirada)
+            // Usamos withTimeout más largo para dar más tiempo en caso de problemas de red
+            try {
+                kotlinx.coroutines.withTimeout(10000) {
+                    // refreshCurrentSession() refresca la sesión si es necesario
+                    // Si la sesión está completamente expirada, lanzará una excepción
+                    auth.refreshCurrentSession()
+                }
+                Log.d("AuthRepository", "✅ Sesión válida o refrescada exitosamente")
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                // Si hay timeout, puede ser un problema de red temporal
+                // Si hay una sesión guardada, asumimos que está activa y dejamos que getCurrentUser() lo verifique
+                Log.w("AuthRepository", "⚠️ Timeout al refrescar sesión (puede ser problema de red temporal)")
+                // NO retornamos false aquí - si hay sesión guardada, la consideramos válida
+                // y dejamos que getCurrentUser() verifique si realmente funciona
+            } catch (e: Exception) {
+                // Verificar si el error es por sesión expirada o problema de red
+                val errorMessage = e.message?.lowercase() ?: ""
+                if (errorMessage.contains("expired") || errorMessage.contains("invalid") || 
+                    errorMessage.contains("unauthorized") || errorMessage.contains("401")) {
+                    // Sesión realmente expirada
+                    Log.w("AuthRepository", "⚠️ Sesión expirada, no se pudo refrescar: ${e.message}")
+                    // Limpiar la sesión expirada
+                    try {
+                        auth.signOut()
+                    } catch (signOutError: Exception) {
+                        Log.w("AuthRepository", "Error al limpiar sesión expirada: ${signOutError.message}")
+                    }
+                    return false
+                } else {
+                    // Puede ser un problema de red temporal
+                    Log.w("AuthRepository", "⚠️ Error al refrescar sesión (puede ser problema de red): ${e.message}")
+                    // Si hay sesión guardada, asumimos que está activa y dejamos que getCurrentUser() lo verifique
+                }
+            }
+            
+            // Verificar nuevamente después del refresh (o si el refresh falló temporalmente)
+            val currentSession = auth.currentSessionOrNull()
+            val isLoggedIn = currentSession != null
+            Log.d("AuthRepository", "🔐 Verificando sesión: ${if (isLoggedIn) "✅ Activa" else "❌ Inactiva"}")
+            if (currentSession != null) {
+                val userId = auth.currentUserOrNull()?.id
+                Log.d("AuthRepository", "📱 Sesión válida para usuario ID: ${userId?.take(8)}...")
+            }
+            isLoggedIn
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "❌ Error al verificar sesión: ${e.message}", e)
+            // En caso de error inesperado, verificar si hay sesión guardada
+            val session = auth.currentSessionOrNull()
+            if (session != null) {
+                Log.d("AuthRepository", "⚠️ Error pero hay sesión guardada, asumiendo válida temporalmente")
+                return true // Si hay sesión guardada, asumimos que está activa
+            }
+            false
+        }
     }
 
     /**
@@ -341,6 +431,7 @@ class AuthRepository {
     fun observeAuthState(): Flow<Boolean> = flow {
         emit(isUserLoggedIn())
         // Aquí podrías implementar un listener de cambios de sesión
+        // Nota: isUserLoggedIn() ahora es suspend, así que se puede usar aquí
     }
 }
 

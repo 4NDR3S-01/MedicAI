@@ -1,9 +1,10 @@
 package com.example.medicai.screens
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -64,37 +65,46 @@ fun AIAssistantScreen(
         }
     }
 
-    // Auto-scroll al último mensaje
+    // Auto-scroll al último mensaje cuando se agregan nuevos mensajes
     LaunchedEffect(messages.size) {
-        Log.d("AIAssistantScreen", "📊 Mensajes actualizados: ${messages.size}")
         if (messages.isNotEmpty()) {
             coroutineScope.launch {
+                kotlinx.coroutines.delay(100)
                 listState.animateScrollToItem(messages.size - 1)
             }
         }
     }
 
-    // Log del estado vacío
-    LaunchedEffect(Unit) {
-        Log.d("AIAssistantScreen", "🚀 Pantalla de IA iniciada")
-    }
-
+    // Obtener insets para aplicar padding del status bar y navegación
+    val insets = androidx.compose.foundation.layout.WindowInsets
+    val systemBars = insets.statusBars.union(insets.navigationBars)
+    val bottomBarPadding = insets.navigationBars.asPaddingValues().calculateBottomPadding()
+    
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // Aplicar todos los insets del sistema para respetar barras nativas en modo horizontal
+            .windowInsetsPadding(systemBars)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Header moderno
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header
             ModernAIHeader(
-                userName = currentUser?.full_name?.split(" ")?.firstOrNull() ?: "Usuario",
-                messageCount = messages.size
+                userName = currentUser?.full_name?.split(" ")?.firstOrNull() ?: "Usuario"
             )
 
             // Mensajes del chat
             if (messages.isEmpty()) {
                 EmptyAIState(modifier = Modifier.weight(1f))
             } else {
+                // Calcular padding para que el último mensaje no quede oculto por el campo de entrada
+                // Nota: bottomBarPadding ya está aplicado en el Box principal, no se suma aquí
+                val navigationBarHeight = 64.dp
+                val inputBarHeight = 88.dp
+                val totalBottomPadding = inputBarHeight + navigationBarHeight + 24.dp
+                
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
@@ -104,7 +114,7 @@ fun AIAssistantScreen(
                         start = 16.dp,
                         end = 16.dp,
                         top = 8.dp,
-                        bottom = 16.dp
+                        bottom = totalBottomPadding
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -119,31 +129,43 @@ fun AIAssistantScreen(
                     }
                 }
             }
-
-            // Input de mensaje
-            MessageInputBar(
-                value = userInput,
-                onValueChange = { userInput = it },
-                onSend = {
-                    Log.d("AIAssistantScreen", "📤 Botón enviar presionado. Mensaje: '$userInput', isLoading: $isLoading")
-                    if (userInput.isNotBlank() && !isLoading) {
-                        Log.d("AIAssistantScreen", "✅ Enviando mensaje al ViewModel")
-                        aiViewModel.sendMessage(userInput)
-                        userInput = ""
-                    } else {
-                        Log.w("AIAssistantScreen", "⚠️ No se puede enviar: mensaje vacío o cargando")
-                    }
-                },
-                isEnabled = !isLoading
-            )
         }
+
+        // Input bar posicionado absolutamente en la parte inferior
+        val imePadding = insets.ime.asPaddingValues().calculateBottomPadding()
+        val navigationBarHeight = 64.dp // Altura de la NavigationBar del Scaffold
+        val extraPadding = 12.dp
+        
+        MessageInputBar(
+            value = userInput,
+            onValueChange = { userInput = it },
+            onSend = {
+                if (userInput.isNotBlank() && !isLoading) {
+                    aiViewModel.sendMessage(userInput)
+                    userInput = ""
+                }
+            },
+            isEnabled = !isLoading,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .then(
+                    if (imePadding > 0.dp) {
+                        // Teclado abierto: usar imePadding que maneja automáticamente el teclado
+                        Modifier.imePadding()
+                    } else {
+                        // Teclado cerrado: usar padding para estar sobre la NavigationBar del Scaffold
+                        // No sumar bottomBarPadding aquí porque ya está aplicado en el Box principal
+                        Modifier.padding(bottom = navigationBarHeight + extraPadding)
+                    }
+                )
+        )
     }
 }
 
 @Composable
 private fun ModernAIHeader(
-    userName: String,
-    messageCount: Int
+    userName: String
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -195,7 +217,7 @@ private fun ModernAIHeader(
                         color = Color.White
                     )
                     Text(
-                        text = "Hola $userName",
+                        text = "Hola $userName, Soy tu asistente médico",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.85f)
                     )
@@ -207,76 +229,46 @@ private fun ModernAIHeader(
 
 @Composable
 private fun EmptyAIState(modifier: Modifier = Modifier) {
-    Box(
+    val scrollState = rememberScrollState()
+    
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(bottom = 16.dp),
-        contentAlignment = Alignment.Center
+            .verticalScroll(scrollState)
+            .padding(horizontal = 32.dp, vertical = 24.dp)
+            .padding(bottom = 100.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Column(
-            modifier = Modifier.padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .background(
-                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.SmartToy,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.tertiary
-                )
-            }
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "¡Hola! Soy tu asistente médico",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = "Puedo ayudarte con:",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SuggestionCard(
-                    icon = Icons.Filled.Medication,
-                    title = "Información sobre medicamentos",
-                    description = "Dosis, efectos secundarios, interacciones"
-                )
-                SuggestionCard(
-                    icon = Icons.Filled.HealthAndSafety,
-                    title = "Síntomas y condiciones",
-                    description = "Consultas generales de salud"
-                )
-                SuggestionCard(
-                    icon = Icons.Filled.Schedule,
-                    title = "Recordatorios y citas",
-                    description = "Organiza tu tratamiento médico"
-                )
-            }
-
             Text(
-                text = "💬 Escribe tu pregunta abajo para comenzar",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.tertiary,
-                fontWeight = FontWeight.SemiBold
+                text = "Puedo ayudarte con:",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SuggestionCard(
+                icon = Icons.Filled.Medication,
+                title = "Información sobre medicamentos",
+                description = "Dosis, efectos secundarios, interacciones"
+            )
+            SuggestionCard(
+                icon = Icons.Filled.HealthAndSafety,
+                title = "Síntomas y condiciones",
+                description = "Consultas generales de salud"
+            )
+            SuggestionCard(
+                icon = Icons.Filled.Schedule,
+                title = "Recordatorios y citas",
+                description = "Organiza tu tratamiento médico"
             )
         }
     }
@@ -518,20 +510,23 @@ private fun MessageInputBar(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    isEnabled: Boolean
+    isEnabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         shadowElevation = 8.dp,
         tonalElevation = 3.dp,
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .padding(bottom = 8.dp),
-            verticalAlignment = Alignment.Bottom,
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedTextField(
@@ -548,6 +543,7 @@ private fun MessageInputBar(
                     onSend = {
                         if (isEnabled && value.isNotBlank()) {
                             onSend()
+                            keyboardController?.hide()
                         }
                     }
                 ),

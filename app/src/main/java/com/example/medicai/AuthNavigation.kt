@@ -1,9 +1,14 @@
 package com.example.medicai
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -23,16 +28,15 @@ fun AuthNavigation(
     authViewModel: AuthViewModel = viewModel()
 ) {
     val navController = rememberNavController()
-    val authState by authViewModel.authState.collectAsState()
+    // Usar initial = AuthState.Loading para mostrar SplashScreen inmediatamente
+    val authState by authViewModel.authState.collectAsState(initial = AuthState.Loading)
 
-    // Mostrar SplashScreen mientras verifica la sesión
+    // Mostrar SplashScreen mientras verifica la sesión o está cargando
     when (authState) {
         is AuthState.Idle -> {
-            // Verificando sesión...
             SplashScreen()
         }
         is AuthState.Loading -> {
-            // Cargando...
             SplashScreen()
         }
         is AuthState.Success -> {

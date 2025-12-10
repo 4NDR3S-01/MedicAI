@@ -2,4 +2,17 @@
 <resources>
 
     <style name="Theme.MedicAI" parent="android:Theme.Material.Light.NoActionBar" />
+    
+    <!-- Tema de Splash Screen para Android 11 y anteriores -->
+    <!-- Para Android 12+, ver values-v31/themes.xml -->
+    <!-- Diseño unificado con SplashScreen de Compose -->
+    <style name="Theme.MedicAI.Splash" parent="Theme.MedicAI">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <item name="android:navigationBarColor">@color/splash_background</item>
+    </style>
 </resources>

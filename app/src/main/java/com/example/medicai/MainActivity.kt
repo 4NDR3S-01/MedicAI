@@ -11,13 +11,20 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import com.example.medicai.ui.theme.MedicAITheme
 import com.example.medicai.sensors.AmbientLightBrightnessController
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : ComponentActivity() {
 
@@ -59,6 +66,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Instalar Splash Screen nativa DESPUÉS de super.onCreate()
+        // Esto la muestra inmediatamente al abrir la app
+        val splashScreen = installSplashScreen()
 
         // Solicitar permisos de notificaciones para Android 13+
         requestNotificationPermissionIfNeeded()
@@ -68,6 +79,11 @@ class MainActivity : ComponentActivity() {
 
         // Habilitar edge-to-edge para que la app use toda la pantalla
         enableEdgeToEdge()
+
+        // Controlar cuándo ocultar la splash screen nativa
+        // Se oculta cuando Compose esté listo y muestre la SplashScreen personalizada
+        val keepSplashScreen = AtomicBoolean(true)
+        splashScreen.setKeepOnScreenCondition { keepSplashScreen.get() }
 
         setContent {
             val isDarkTheme = isSystemInDarkTheme()
@@ -88,6 +104,17 @@ class MainActivity : ComponentActivity() {
                 // Activar sensor de luz ambiental en toda la aplicación
                 AmbientLightBrightnessController()
 
+                // Ocultar splash screen nativa cuando Compose muestre la SplashScreen personalizada
+                // Esto crea una transición fluida y unificada
+                LaunchedEffect(Unit) {
+                    // Pequeño delay para que Compose renderice la SplashScreen personalizada
+                    // antes de ocultar la nativa, creando una transición suave
+                    kotlinx.coroutines.delay(150)
+                    keepSplashScreen.set(false)
+                }
+
+                // Mostrar contenido de la app
+                // La SplashScreen personalizada se mostrará inmediatamente
                 AuthNavigation()
             }
         }

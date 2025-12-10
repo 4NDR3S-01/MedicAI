@@ -30,6 +30,18 @@ android {
         
         // Agregar API key a BuildConfig
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("GROQ_API_KEY") ?: ""}\"")
+        
+        // Configurar ABIs explícitamente para evitar problemas con split APKs
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+        }
+    }
+    
+    // Deshabilitar splits de ABI para generar un APK universal
+    splits {
+        abi {
+            isEnable = false
+        }
     }
 
     buildTypes {
@@ -110,6 +122,9 @@ dependencies {
 
     // Google Play Services Location para geolocalización
     implementation("com.google.android.gms:play-services-location:21.1.0")
+    
+    // Splash Screen API (Android 12+)
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Test / debug
     testImplementation(libs.junit)

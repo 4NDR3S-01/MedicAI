@@ -157,13 +157,15 @@ fun AppointmentsScreen(
             }
         }
 
-        // FAB moderno flotante
-        ModernFloatingActionButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-        )
+        // FAB moderno flotante - Solo mostrar cuando hay citas o no está en estado vacío
+        if (!isLoading && filteredAppointments.isNotEmpty()) {
+            ModernFloatingActionButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp)
+            )
+        }
     }
 
     // Diálogo para agregar cita
