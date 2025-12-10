@@ -1,19 +1,23 @@
 package com.example.medicai.data.repository
 
 import android.util.Log
+import com.example.medicai.MedicAIApplication
 import com.example.medicai.data.models.RegistrationData
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.models.UpdateProfileRequest
 import com.example.medicai.data.models.UserProfile
 import com.example.medicai.data.remote.SupabaseClient
+import com.example.medicai.utils.NetworkMonitor
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import java.io.IOException
 
 /**
  * Repository para manejar todas las operaciones de autenticación con Supabase
+ * ✅ Incluye detección de conexión a internet
  */
 class AuthRepository {
 
@@ -107,6 +111,15 @@ class AuthRepository {
      */
     suspend fun login(email: String, password: String): Result<UserProfile> {
         return try {
+            // Verificar conexión a internet
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) {
+                return Result.Error(
+                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
+                    exception = IOException("No hay conexión a internet")
+                )
+            }
+
             // Log sin información sensible (solo dominio del email)
             val emailDomain = email.substringAfter("@", "unknown")
             Log.d("AuthRepository", "Iniciando sesión para dominio: @$emailDomain")
@@ -136,6 +149,12 @@ class AuthRepository {
             Log.d("AuthRepository", "Inicio de sesión exitoso para: $email")
             Result.Success(profile)
 
+        } catch (e: IOException) {
+            Log.e("AuthRepository", "❌ Error de conexión: ${e.message}", e)
+            Result.Error(
+                message = "Error de conexión. Por favor verifica tu internet.",
+                exception = e
+            )
         } catch (e: Exception) {
             Log.e("AuthRepository", "Error en inicio de sesión: ${e.message}", e)
             Result.Error(

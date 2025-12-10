@@ -238,7 +238,7 @@ private fun CustomSensorCard(
             ) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = null,
+                    contentDescription = name, // Descripción accesible para TalkBack
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp)
                 )

@@ -179,7 +179,7 @@ fun LoginScreen(
                             },
                             label = { Text("Correo electrónico") },
                             leadingIcon = {
-                                Icon(Icons.Filled.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Filled.Email, contentDescription = "Correo electrónico", tint = MaterialTheme.colorScheme.primary)
                             },
                             singleLine = true,
                             isError = emailError,
@@ -210,7 +210,7 @@ fun LoginScreen(
                             },
                             label = { Text("Contraseña") },
                             leadingIcon = {
-                                Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Filled.Lock, contentDescription = "Contraseña", tint = MaterialTheme.colorScheme.primary)
                             },
                             trailingIcon = {
                                 IconButton(onClick = { passwordVisible = !passwordVisible }) {

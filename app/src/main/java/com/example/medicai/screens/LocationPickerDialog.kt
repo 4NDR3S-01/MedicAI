@@ -139,7 +139,7 @@ fun GoogleMapsLocationPickerDialog(
                     label = { Text("Buscar o escribir ubicación personalizada") },
                     placeholder = { Text("Ej: Hospital General, Consultorio Dr. López...") },
                     leadingIcon = {
-                        Icon(Icons.Filled.Search, contentDescription = null)
+                        Icon(Icons.Filled.Search, contentDescription = "Buscar ubicación")
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {

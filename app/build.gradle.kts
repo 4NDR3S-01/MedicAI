@@ -23,13 +23,15 @@ android {
         applicationId = "com.example.medicai"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // Agregar API key a BuildConfig
+        // Agregar API keys a BuildConfig
         buildConfigField("String", "GROQ_API_KEY", "\"${localProperties.getProperty("GROQ_API_KEY") ?: ""}\"")
+        buildConfigField("String", "SUPABASE_URL", "\"${localProperties.getProperty("SUPABASE_URL") ?: ""}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${localProperties.getProperty("SUPABASE_KEY") ?: ""}\"")
         
         // Configurar ABIs explícitamente para evitar problemas con split APKs
         ndk {
@@ -46,7 +48,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -113,6 +116,9 @@ dependencies {
 
     // DataStore para almacenar preferencias
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+    
+    // Security Crypto para EncryptedSharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // WorkManager para tareas en background (reprogramar alarmas después de reinicio)
     implementation("androidx.work:work-runtime-ktx:2.9.0")

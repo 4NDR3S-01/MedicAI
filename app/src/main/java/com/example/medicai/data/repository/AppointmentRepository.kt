@@ -1,14 +1,18 @@
 package com.example.medicai.data.repository
 
 import android.util.Log
+import com.example.medicai.MedicAIApplication
 import com.example.medicai.data.models.Appointment
 import com.example.medicai.data.models.AppointmentRequest
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.remote.SupabaseClient
+import com.example.medicai.utils.NetworkMonitor
 import io.github.jan.supabase.postgrest.from
+import java.io.IOException
 
 /**
  * Repositorio para operaciones CRUD de Citas Médicas
+ * ✅ Incluye detección de conexión a internet
  */
 class AppointmentRepository {
 
@@ -19,6 +23,15 @@ class AppointmentRepository {
      */
     suspend fun getAppointments(userId: String): Result<List<Appointment>> {
         return try {
+            // Verificar conexión a internet
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) {
+                return Result.Error(
+                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
+                    exception = IOException("No hay conexión a internet")
+                )
+            }
+
             Log.d("AppointmentRepository", "Obteniendo citas para user: $userId")
 
             val appointments = client.from("appointments")
@@ -29,6 +42,12 @@ class AppointmentRepository {
 
             Log.d("AppointmentRepository", "✅ ${appointments.size} citas obtenidas")
             Result.Success(appointments)
+        } catch (e: IOException) {
+            Log.e("AppointmentRepository", "❌ Error de conexión: ${e.message}", e)
+            Result.Error(
+                message = "Error de conexión. Por favor verifica tu internet.",
+                exception = e
+            )
         } catch (e: Exception) {
             Log.e("AppointmentRepository", "❌ Error obteniendo citas: ${e.message}", e)
             Result.Error(
@@ -71,6 +90,15 @@ class AppointmentRepository {
      */
     suspend fun addAppointment(appointment: AppointmentRequest): Result<Appointment> {
         return try {
+            // Verificar conexión a internet
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) {
+                return Result.Error(
+                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
+                    exception = IOException("No hay conexión a internet")
+                )
+            }
+
             Log.d("AppointmentRepository", "Agregando cita con: ${appointment.doctor_name}")
 
             val newAppointment = client.from("appointments")
@@ -81,6 +109,12 @@ class AppointmentRepository {
 
             Log.d("AppointmentRepository", "✅ Cita agregada: ${newAppointment.id}")
             Result.Success(newAppointment)
+        } catch (e: IOException) {
+            Log.e("AppointmentRepository", "❌ Error de conexión: ${e.message}", e)
+            Result.Error(
+                message = "Error de conexión. Por favor verifica tu internet.",
+                exception = e
+            )
         } catch (e: Exception) {
             Log.e("AppointmentRepository", "❌ Error agregando cita: ${e.message}", e)
             Result.Error(

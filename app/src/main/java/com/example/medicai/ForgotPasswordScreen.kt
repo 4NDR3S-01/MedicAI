@@ -169,7 +169,7 @@ fun ForgotPasswordScreen(
                             },
                             label = { Text("Correo electrónico") },
                             leadingIcon = {
-                                Icon(Icons.Filled.Email, contentDescription = null)
+                                Icon(Icons.Filled.Email, contentDescription = "Correo electrónico")
                             },
                             placeholder = { Text("ejemplo@correo.com") },
                             singleLine = true,

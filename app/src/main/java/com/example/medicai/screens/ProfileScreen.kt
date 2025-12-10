@@ -615,7 +615,7 @@ private fun EditProfileDialog(
                     onValueChange = { name = it },
                     label = { Text("Nombre completo") },
                     leadingIcon = {
-                        Icon(Icons.Filled.Person, contentDescription = null)
+                        Icon(Icons.Filled.Person, contentDescription = "Nombre completo")
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -626,7 +626,7 @@ private fun EditProfileDialog(
                     onValueChange = { phone = it },
                     label = { Text("Teléfono") },
                     leadingIcon = {
-                        Icon(Icons.Filled.Phone, contentDescription = null)
+                        Icon(Icons.Filled.Phone, contentDescription = "Teléfono")
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)

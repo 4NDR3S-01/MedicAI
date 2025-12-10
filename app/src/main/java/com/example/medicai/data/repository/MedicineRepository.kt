@@ -1,15 +1,19 @@
 package com.example.medicai.data.repository
 
 import android.util.Log
+import com.example.medicai.MedicAIApplication
 import com.example.medicai.data.models.Medicine
 import com.example.medicai.data.models.MedicineRequest
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.remote.SupabaseClient
+import com.example.medicai.utils.NetworkMonitor
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import java.io.IOException
 
 /**
  * Repositorio para operaciones CRUD de Medicamentos
+ * ✅ Incluye detección de conexión a internet
  */
 class MedicineRepository {
 
@@ -20,6 +24,16 @@ class MedicineRepository {
      */
     suspend fun getMedicines(userId: String): Result<List<Medicine>> {
         return try {
+            // Verificar conexión a internet
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) {
+                Log.w("MedicineRepository", "⚠️ Sin conexión a internet")
+                return Result.Error(
+                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
+                    exception = IOException("No hay conexión a internet")
+                )
+            }
+
             Log.d("MedicineRepository", "Obteniendo medicamentos para user: $userId")
 
             val medicines = client.from("medicines")
@@ -30,6 +44,12 @@ class MedicineRepository {
 
             Log.d("MedicineRepository", "✅ ${medicines.size} medicamentos obtenidos")
             Result.Success(medicines)
+        } catch (e: IOException) {
+            Log.e("MedicineRepository", "❌ Error de conexión: ${e.message}", e)
+            Result.Error(
+                message = "Error de conexión. Por favor verifica tu internet.",
+                exception = e
+            )
         } catch (e: Exception) {
             Log.e("MedicineRepository", "❌ Error obteniendo medicamentos: ${e.message}", e)
             Result.Error(
@@ -44,6 +64,15 @@ class MedicineRepository {
      */
     suspend fun addMedicine(medicine: MedicineRequest): Result<Medicine> {
         return try {
+            // Verificar conexión a internet
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) {
+                return Result.Error(
+                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
+                    exception = IOException("No hay conexión a internet")
+                )
+            }
+
             Log.d("MedicineRepository", "Agregando medicamento: ${medicine.name}")
 
             val newMedicine = client.from("medicines")
@@ -54,6 +83,12 @@ class MedicineRepository {
 
             Log.d("MedicineRepository", "✅ Medicamento agregado: ${newMedicine.id}")
             Result.Success(newMedicine)
+        } catch (e: IOException) {
+            Log.e("MedicineRepository", "❌ Error de conexión: ${e.message}", e)
+            Result.Error(
+                message = "Error de conexión. Por favor verifica tu internet.",
+                exception = e
+            )
         } catch (e: Exception) {
             Log.e("MedicineRepository", "❌ Error agregando medicamento: ${e.message}", e)
             Result.Error(

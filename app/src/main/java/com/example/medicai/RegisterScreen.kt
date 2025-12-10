@@ -242,7 +242,7 @@ fun RegisterScreen(
                             value = fullName,
                             onValueChange = { fullName = it; nameTouched = true },
                             label = { Text("Nombre completo") },
-                            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "Nombre completo", tint = MaterialTheme.colorScheme.primary) },
                             singleLine = true,
                             isError = nameError,
                             supportingText = {
@@ -259,7 +259,7 @@ fun RegisterScreen(
                             value = email,
                             onValueChange = { email = it; emailTouched = true },
                             label = { Text("Correo electrónico") },
-                            leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "Correo electrónico", tint = MaterialTheme.colorScheme.primary) },
                             singleLine = true,
                             isError = emailError,
                             supportingText = {
@@ -279,7 +279,7 @@ fun RegisterScreen(
                             value = phone,
                             onValueChange = { phone = it; phoneTouched = true },
                             label = { Text("Teléfono (opcional)") },
-                            leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingIcon = { Icon(Icons.Filled.Phone, contentDescription = "Teléfono", tint = MaterialTheme.colorScheme.primary) },
                             singleLine = true,
                             isError = phoneError,
                             supportingText = { if (phoneError) Text("Ingresa al menos 9 dígitos") },
@@ -321,7 +321,7 @@ fun RegisterScreen(
                             value = password,
                             onValueChange = { password = it; passTouched = true },
                             label = { Text("Contraseña") },
-                            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Contraseña", tint = MaterialTheme.colorScheme.primary) },
                             trailingIcon = {
                                 IconButton(onClick = { passVisible = !passVisible }) {
                                     Icon(
@@ -350,7 +350,7 @@ fun RegisterScreen(
                             value = confirm,
                             onValueChange = { confirm = it; confirmTouched = true },
                             label = { Text("Confirmar contraseña") },
-                            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "Contraseña", tint = MaterialTheme.colorScheme.primary) },
                             trailingIcon = {
                                 IconButton(onClick = { confirmVisible = !confirmVisible }) {
                                     Icon(

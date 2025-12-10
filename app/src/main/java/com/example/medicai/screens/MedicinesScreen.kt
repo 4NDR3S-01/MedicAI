@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -114,14 +115,24 @@ fun MedicinesScreen(
             )
 
             // Contenido
-            if (isLoading) {
-                LoadingState()
-            } else if (filteredMedicines.isEmpty()) {
-                EmptyMedicinesState(
+            when {
+                isLoading -> LoadingState()
+                error != null -> {
+                    com.example.medicai.ui.components.ErrorState(
+                        message = error ?: "Error desconocido",
+                        onRetry = {
+                            currentUser?.id?.let { userId ->
+                                medicineViewModel.loadMedicines(userId)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                filteredMedicines.isEmpty() -> EmptyMedicinesState(
                     filter = selectedFilter,
                     onAddClick = { showAddDialog = true }
                 )
-            } else {
+                else -> {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -162,6 +173,7 @@ fun MedicinesScreen(
                             }
                         )
                     }
+                }
                 }
             }
         }
@@ -824,7 +836,9 @@ private fun EmptyMedicinesState(
                     "Intenta cambiar el filtro"
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
 
             if (filter == "Todos") {
@@ -946,7 +960,7 @@ private fun ModernAddMedicineDialog(
                             ) 
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.MedicalServices, contentDescription = null)
+                            Icon(Icons.Filled.MedicalServices, contentDescription = "Nombre del medicamento")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -973,7 +987,7 @@ private fun ModernAddMedicineDialog(
                             ) 
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.Colorize, contentDescription = null)
+                            Icon(Icons.Filled.Colorize, contentDescription = "Dosis")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -1008,7 +1022,7 @@ private fun ModernAddMedicineDialog(
                                     )
                                 },
                                 leadingIcon = if (frequencyHours == hours) {
-                                    { Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) }
+                                    { Icon(Icons.Filled.Check, "Confirmado", Modifier.size(18.dp)) }
                                 } else null
                             )
                         }
@@ -1116,7 +1130,7 @@ private fun ModernAddMedicineDialog(
                         onValueChange = { notes = it },
                         label = { Text("Notas (opcional)") },
                         leadingIcon = {
-                            Icon(Icons.Filled.Notes, contentDescription = null)
+                            Icon(Icons.Filled.Notes, contentDescription = "Notas")
                         },
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
@@ -1290,7 +1304,7 @@ private fun ModernEditMedicineDialog(
                             ) 
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.MedicalServices, contentDescription = null)
+                            Icon(Icons.Filled.MedicalServices, contentDescription = "Nombre del medicamento")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -1317,7 +1331,7 @@ private fun ModernEditMedicineDialog(
                             ) 
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.Colorize, contentDescription = null)
+                            Icon(Icons.Filled.Colorize, contentDescription = "Dosis")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -1352,7 +1366,7 @@ private fun ModernEditMedicineDialog(
                                     )
                                 },
                                 leadingIcon = if (frequencyHours == hours) {
-                                    { Icon(Icons.Filled.Check, null, Modifier.size(18.dp)) }
+                                    { Icon(Icons.Filled.Check, "Confirmado", Modifier.size(18.dp)) }
                                 } else null
                             )
                         }

@@ -3,10 +3,14 @@ package com.example.medicai.data.local
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import java.io.IOException
 
 /**
- * Gestor centralizado de preferencias de usuario
+ * Gestor centralizado de preferencias de usuario con encriptación
  * Proporciona acceso síncrono a preferencias para uso en BroadcastReceivers y otros componentes
+ * ✅ Usa EncryptedSharedPreferences para proteger datos sensibles
  */
 object UserPreferencesManager {
     private const val PREFS_NAME = "medicai_user_prefs"
@@ -29,10 +33,33 @@ object UserPreferencesManager {
     )
     
     /**
-     * Obtener SharedPreferences
+     * Obtener EncryptedSharedPreferences
+     * Si falla la creación (por ejemplo, en dispositivos sin soporte), usa SharedPreferences normal como fallback
      */
     private fun getPrefs(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return try {
+            // Crear MasterKey para encriptación
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            
+            // Crear EncryptedSharedPreferences
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: IOException) {
+            // Fallback a SharedPreferences normal si hay error (dispositivos muy antiguos)
+            Log.w("UserPreferencesManager", "⚠️ No se pudo crear EncryptedSharedPreferences, usando SharedPreferences normal: ${e.message}")
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        } catch (e: Exception) {
+            // Cualquier otro error, usar fallback
+            Log.e("UserPreferencesManager", "❌ Error al crear EncryptedSharedPreferences: ${e.message}", e)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }
     }
     
     /**

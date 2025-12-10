@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.ViewModelProvider
@@ -55,14 +56,12 @@ fun AppointmentsScreen(
     var appointmentToEdit by remember { mutableStateOf<Appointment?>(null) }
     var selectedFilter by rememberSaveable { mutableStateOf("Próximas") }
 
-    // Cargar citas al iniciar
+    /** ──────────────────────────── Carga inicial ───────────────────────────── */
     LaunchedEffect(currentUser) {
-        currentUser?.id?.let { userId ->
-            appointmentViewModel.loadAppointments(userId)
-        }
+        currentUser?.id?.let(appointmentViewModel::loadAppointments)
     }
 
-    // Mostrar mensajes de éxito
+    /** ──────────────────────────── Notificaciones ─────────────────────────── */
     LaunchedEffect(successMessage) {
         successMessage?.let {
             Toast.makeText(context, "✅ $it", Toast.LENGTH_SHORT).show()
@@ -70,7 +69,6 @@ fun AppointmentsScreen(
         }
     }
 
-    // Mostrar mensajes de error
     LaunchedEffect(error) {
         error?.let {
             Toast.makeText(context, "❌ $it", Toast.LENGTH_LONG).show()
@@ -78,62 +76,68 @@ fun AppointmentsScreen(
         }
     }
 
-    // Filtrar citas
-    val today = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
-    val filteredAppointments = when (selectedFilter) {
-        "Próximas" -> appointments.filter { it.status == "scheduled" && it.date >= today }
-        "Pasadas" -> appointments.filter { it.date < today || it.status == "completed" }
-        "Completadas" -> appointments.filter { it.status == "completed" }
-        "Canceladas" -> appointments.filter { it.status == "cancelled" }
-        else -> appointments
+    /** ─────────────────────────── Filtro de citas ─────────────────────────── */
+    val today = remember {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
+    val filteredAppointments = remember(appointments, selectedFilter) {
+        when (selectedFilter) {
+            "Próximas"     -> appointments.filter { it.status == "scheduled" && it.date >= today }
+            "Pasadas"      -> appointments.filter { (it.date < today) || it.status == "completed" }
+            "Completadas"  -> appointments.filter { it.status == "completed" }
+            "Canceladas"   -> appointments.filter { it.status == "cancelled" }
+            else           -> appointments
+        }
+    }
+
+    /** ────────────────────────────── UI Base ──────────────────────────────── */
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Header moderno con gradiente
+        Column(Modifier.fillMaxSize()) {
+
             ModernAppointmentHeader(
                 totalCount = appointments.size,
                 upcomingCount = appointments.count { it.status == "scheduled" && it.date >= today }
             )
 
-            // Filtros
             AppointmentFilterChips(
                 selectedFilter = selectedFilter,
                 onFilterSelected = { selectedFilter = it },
                 counts = mapOf(
-                    "Próximas" to appointments.count { it.status == "scheduled" && it.date >= today },
-                "Completadas" to appointments.count { it.status == "completed" },
-                "Pasadas" to appointments.count { it.date < today || it.status == "completed" },
-                "Canceladas" to appointments.count { it.status == "cancelled" }
+                    "Próximas"     to appointments.count { it.status == "scheduled" && it.date >= today },
+                    "Completadas"  to appointments.count { it.status == "completed" },
+                    "Pasadas"      to appointments.count { (it.date < today) || it.status == "completed" },
+                    "Canceladas"   to appointments.count { it.status == "cancelled" }
                 )
             )
 
-            // Contenido
-            if (isLoading) {
-                LoadingAppointmentsState()
-            } else if (filteredAppointments.isEmpty()) {
-                EmptyAppointmentsState(
+            /** ────────────── Contenido dinámico según estado ────────────── */
+            when {
+                isLoading -> LoadingAppointmentsState()
+
+                error != null -> com.example.medicai.ui.components.ErrorState(
+                    message = error ?: "Error desconocido",
+                    onRetry = { currentUser?.id?.let(appointmentViewModel::loadAppointments) },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                filteredAppointments.isEmpty() -> EmptyAppointmentsState(
                     filter = selectedFilter,
                     onAddClick = { showAddDialog = true }
                 )
-            } else {
-                LazyColumn(
+
+                else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 4.dp,
-                        bottom = 90.dp
-                    ),
+                    contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = filteredAppointments,
-                        key = { it.id.ifEmpty { UUID.randomUUID().toString() } }
+                        filteredAppointments,
+                        key = { it.id } // evita recreación de key en cada render
                     ) { appointment ->
                         AnimatedAppointmentCard(
                             appointment = appointment,
@@ -141,49 +145,45 @@ fun AppointmentsScreen(
                                 appointmentToEdit = appointment
                                 showEditDialog = true
                             },
-                            onCancel = {
-                                currentUser?.id?.let { userId ->
-                                    appointmentViewModel.cancelAppointment(appointment.id, userId)
-                                }
-                            },
-                            onComplete = {
-                                currentUser?.id?.let { userId ->
-                                    appointmentViewModel.completeAppointment(appointment.id, userId)
-                                }
-                            }
+                            onCancel = { currentUser?.id?.let { id -> appointmentViewModel.cancelAppointment(appointment.id, id) } },
+                            onComplete = { currentUser?.id?.let { id -> appointmentViewModel.completeAppointment(appointment.id, id) } }
                         )
                     }
                 }
             }
         }
 
-        // FAB moderno flotante - Solo mostrar cuando hay citas o no está en estado vacío
+        /** ───────────────────── FAB ───────────────────── */
         if (!isLoading && filteredAppointments.isNotEmpty()) {
-            ModernFloatingActionButton(
+            FloatingActionButton(
                 onClick = { showAddDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(24.dp)
-            )
+                    .padding(24.dp),
+                containerColor = MaterialTheme.colorScheme.secondary
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Agregar cita",
+                    tint = MaterialTheme.colorScheme.onSecondary
+                )
+            }
         }
     }
 
-    // Diálogo para agregar cita
+    /** ────────────────────────── Diálogos ───────────────────────────── */
     if (showAddDialog) {
         currentUser?.let { user ->
             ModernAddAppointmentDialog(
                 userId = user.id,
                 onDismiss = { showAddDialog = false },
-                onConfirm = { appointmentRequest ->
-                    appointmentViewModel.addAppointment(appointmentRequest) {
-                        showAddDialog = false
-                    }
+                onConfirm = {
+                    appointmentViewModel.addAppointment(it) { showAddDialog = false }
                 }
             )
         }
     }
 
-    // Diálogo para editar cita
     if (showEditDialog && appointmentToEdit != null) {
         ModernEditAppointmentDialog(
             appointment = appointmentToEdit!!,
@@ -191,11 +191,8 @@ fun AppointmentsScreen(
                 showEditDialog = false
                 appointmentToEdit = null
             },
-            onConfirm = { appointmentRequest ->
-                appointmentViewModel.updateAppointment(
-                    id = appointmentToEdit!!.id,
-                    appointment = appointmentRequest
-                ) {
+            onConfirm = {
+                appointmentViewModel.updateAppointment(appointmentToEdit!!.id, it) {
                     showEditDialog = false
                     appointmentToEdit = null
                 }
@@ -203,6 +200,7 @@ fun AppointmentsScreen(
         )
     }
 }
+
 
 @Composable
 private fun ModernAppointmentHeader(
@@ -830,7 +828,9 @@ private fun EmptyAppointmentsState(
                     "Intenta cambiar el filtro"
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
 
             if (filter == "Todas" || filter == "Próximas") {
@@ -973,7 +973,7 @@ private fun ModernAddAppointmentDialog(
                         onValueChange = { doctorName = it },
                         label = { Text("Nombre del médico *") },
                         leadingIcon = {
-                            Icon(Icons.Filled.Person, contentDescription = null)
+                            Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -987,7 +987,7 @@ private fun ModernAddAppointmentDialog(
                         onValueChange = { specialty = it },
                         label = { Text("Especialidad *") },
                         leadingIcon = {
-                            Icon(Icons.Filled.MedicalServices, contentDescription = null)
+                            Icon(Icons.Filled.MedicalServices, contentDescription = "Especialidad")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -1172,7 +1172,7 @@ private fun ModernAddAppointmentDialog(
                         onValueChange = { notes = it },
                         label = { Text("Notas (opcional)") },
                         leadingIcon = {
-                            Icon(Icons.Filled.Notes, contentDescription = null)
+                            Icon(Icons.Filled.Notes, contentDescription = "Notas")
                         },
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
@@ -1233,8 +1233,9 @@ private fun ModernAddAppointmentDialog(
     // Date Picker Dialog
     if (showDatePicker) {
         AppointmentDatePickerDialog(
+            initialDateMillis = selectedDateMillis,
             onDismiss = { showDatePicker = false },
-            onConfirm = { dateMillis ->
+            onConfirm = { dateMillis: Long ->
                 selectedDateMillis = dateMillis
                 showDatePicker = false
             }
@@ -1349,7 +1350,7 @@ private fun ModernEditAppointmentDialog(
                         onValueChange = { doctorName = it },
                         label = { Text("Nombre del médico *") },
                         leadingIcon = {
-                            Icon(Icons.Filled.Person, contentDescription = null)
+                            Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -1363,7 +1364,7 @@ private fun ModernEditAppointmentDialog(
                         onValueChange = { specialty = it },
                         label = { Text("Especialidad *") },
                         leadingIcon = {
-                            Icon(Icons.Filled.MedicalServices, contentDescription = null)
+                            Icon(Icons.Filled.MedicalServices, contentDescription = "Especialidad")
                         },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -1548,7 +1549,7 @@ private fun ModernEditAppointmentDialog(
                         onValueChange = { notes = it },
                         label = { Text("Notas (opcional)") },
                         leadingIcon = {
-                            Icon(Icons.Filled.Notes, contentDescription = null)
+                            Icon(Icons.Filled.Notes, contentDescription = "Notas")
                         },
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
@@ -1611,7 +1612,7 @@ private fun ModernEditAppointmentDialog(
         AppointmentDatePickerDialog(
             initialDateMillis = selectedDateMillis,
             onDismiss = { showDatePicker = false },
-            onConfirm = { dateMillis ->
+            onConfirm = { dateMillis: Long ->
                 selectedDateMillis = dateMillis
                 showDatePicker = false
             }
@@ -1624,7 +1625,7 @@ private fun ModernEditAppointmentDialog(
             initialHour = selectedHour,
             initialMinute = selectedMinute,
             onDismiss = { showTimePicker = false },
-            onConfirm = { hour, minute ->
+            onConfirm = { hour: Int, minute: Int ->
                 selectedHour = hour
                 selectedMinute = minute
                 showTimePicker = false
@@ -1648,7 +1649,7 @@ private fun ModernEditAppointmentDialog(
 // Componente DatePickerDialog para Citas
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppointmentDatePickerDialog(
+fun AppointmentDatePickerDialog(
     initialDateMillis: Long? = null,
     onDismiss: () -> Unit,
     onConfirm: (Long) -> Unit
@@ -1689,7 +1690,7 @@ private fun AppointmentDatePickerDialog(
 // Componente TimePickerDialog para Citas
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppointmentTimePickerDialog(
+fun AppointmentTimePickerDialog(
     initialHour: Int,
     initialMinute: Int,
     onDismiss: () -> Unit,

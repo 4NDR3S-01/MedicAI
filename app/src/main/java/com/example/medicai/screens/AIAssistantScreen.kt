@@ -301,7 +301,7 @@ private fun SuggestionCard(
             ) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = null,
+                    contentDescription = title, // Descripción accesible para TalkBack
                     tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(24.dp)
                 )

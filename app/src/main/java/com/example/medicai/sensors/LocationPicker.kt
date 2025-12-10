@@ -110,7 +110,7 @@ fun LocationPickerDialog(
                     onValueChange = { searchQuery = it },
                     label = { Text("Buscar o escribir ubicación") },
                     leadingIcon = {
-                        Icon(Icons.Filled.Search, contentDescription = null)
+                        Icon(Icons.Filled.Search, contentDescription = "Buscar ubicación")
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -172,7 +172,7 @@ fun LocationPickerDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Obteniendo ubicación...")
                     } else {
-                        Icon(Icons.Filled.MyLocation, contentDescription = null)
+                        Icon(Icons.Filled.MyLocation, contentDescription = "Mi ubicación actual")
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Usar mi ubicación actual (GPS)")
                     }
@@ -294,7 +294,7 @@ fun LocationPickerDialog(
                 },
                 enabled = searchQuery.isNotBlank()
             ) {
-                Icon(Icons.Filled.Check, contentDescription = null)
+                Icon(Icons.Filled.Check, contentDescription = "Confirmar selección")
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Seleccionar")
             }

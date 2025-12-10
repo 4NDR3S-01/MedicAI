@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -579,41 +580,50 @@ private fun ModernMedicineCard(medicine: Medicine) {
                     hour * 60 + minute // minutos desde medianoche
                 }
                 
-                val nextDose = remember(medicine.times, currentTime) {
-                    medicine.times
-                        .map { timeStr ->
-                            val parts = timeStr.split(":")
-                            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
-                            val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
-                            hour * 60 + minute
-                        }
-                        .filter { it >= currentTime }
-                        .minOrNull() ?: medicine.times.firstOrNull()?.let { timeStr ->
-                            val parts = timeStr.split(":")
-                            val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
-                            val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
-                            hour * 60 + minute
-                        } ?: 0
-                }
-                
-                val nextDoseTime = remember(nextDose) {
-                    val hour = nextDose / 60
-                    val minute = nextDose % 60
-                    String.format("%02d:%02d", hour, minute)
-                }
-                
-                val timeUntilNext = remember(nextDose, currentTime) {
-                    val diff = if (nextDose >= currentTime) {
-                        nextDose - currentTime
-                    } else {
-                        (24 * 60) - currentTime + nextDose
+                // ✅ Optimizado con derivedStateOf para evitar recomposiciones innecesarias
+                val nextDose by remember {
+                    derivedStateOf {
+                        medicine.times
+                            .map { timeStr ->
+                                val parts = timeStr.split(":")
+                                val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                                val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                                hour * 60 + minute
+                            }
+                            .filter { it >= currentTime }
+                            .minOrNull() ?: medicine.times.firstOrNull()?.let { timeStr ->
+                                val parts = timeStr.split(":")
+                                val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                                val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                                hour * 60 + minute
+                            } ?: 0
                     }
-                    val hours = diff / 60
-                    val minutes = diff % 60
-                    when {
-                        hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
-                        hours > 0 -> "${hours}h"
-                        else -> "${minutes}m"
+                }
+                
+                val nextDoseTime by remember {
+                    derivedStateOf {
+                        val dose = nextDose
+                        val hour = dose / 60
+                        val minute = dose % 60
+                        String.format("%02d:%02d", hour, minute)
+                    }
+                }
+                
+                val timeUntilNext by remember {
+                    derivedStateOf {
+                        val dose = nextDose
+                        val diff = if (dose >= currentTime) {
+                            dose - currentTime
+                        } else {
+                            (24 * 60) - currentTime + dose
+                        }
+                        val hours = diff / 60
+                        val minutes = diff % 60
+                        when {
+                            hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
+                            hours > 0 -> "${hours}h"
+                            else -> "${minutes}m"
+                        }
                     }
                 }
 
