@@ -80,7 +80,6 @@ class AIViewModel : ViewModel() {
                     content = "❌ Lo siento, hubo un problema al procesar tu mensaje.\n\n" +
                             "**Posibles causas:**\n" +
                             "• Problema de conexión a internet\n" +
-                            "• API Key no configurada correctamente\n" +
                             "• Servicio temporalmente no disponible\n\n" +
                             "Por favor, intenta de nuevo en un momento.",
                     session_id = sessionId
