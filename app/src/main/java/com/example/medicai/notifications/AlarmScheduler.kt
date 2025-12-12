@@ -408,5 +408,57 @@ object AlarmScheduler {
             Log.d("AlarmScheduler", "🗑️ Recordatorio de cita cancelado: $appointmentId")
         }
     }
+
+    /**
+     * Cancelar todas las alarmas de un usuario (medicamentos y citas)
+     * Se usa cuando el usuario cierra sesión para evitar notificaciones después del logout
+     */
+    suspend fun cancelAllUserAlarms(context: Context, userId: String) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        Log.d("AlarmScheduler", "🗑️ Cancelando todas las alarmas para usuario: $userId")
+
+        try {
+            // Obtener todos los medicamentos del usuario
+            val medicineRepository = com.example.medicai.data.repository.MedicineRepository()
+            when (val result = medicineRepository.getMedicines(userId)) {
+                is com.example.medicai.data.models.Result.Success -> {
+                    result.data.forEach { medicine ->
+                        // Cancelar alarmas de cada medicamento
+                        cancelMedicineReminders(
+                            context = context,
+                            medicineId = medicine.id,
+                            timesCount = medicine.times.size
+                        )
+                    }
+                    Log.d("AlarmScheduler", "✅ Alarmas de ${result.data.size} medicamentos canceladas")
+                }
+                else -> {
+                    Log.w("AlarmScheduler", "⚠️ No se pudieron obtener medicamentos para cancelar alarmas")
+                }
+            }
+
+            // Obtener todas las citas del usuario
+            val appointmentRepository = com.example.medicai.data.repository.AppointmentRepository()
+            when (val result = appointmentRepository.getAppointments(userId)) {
+                is com.example.medicai.data.models.Result.Success -> {
+                    result.data.forEach { appointment ->
+                        // Cancelar alarmas de cada cita
+                        cancelAppointmentReminder(
+                            context = context,
+                            appointmentId = appointment.id
+                        )
+                    }
+                    Log.d("AlarmScheduler", "✅ Alarmas de ${result.data.size} citas canceladas")
+                }
+                else -> {
+                    Log.w("AlarmScheduler", "⚠️ No se pudieron obtener citas para cancelar alarmas")
+                }
+            }
+
+            Log.d("AlarmScheduler", "✅ Todas las alarmas del usuario canceladas")
+        } catch (e: Exception) {
+            Log.e("AlarmScheduler", "❌ Error cancelando todas las alarmas: ${e.message}", e)
+        }
+    }
 }
 

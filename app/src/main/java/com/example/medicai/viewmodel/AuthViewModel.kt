@@ -382,17 +382,35 @@ class AuthViewModel(
 
     /**
      * Cerrar sesión
+     * ✅ Cancela todas las alarmas del usuario antes de limpiar datos
      * ✅ Limpia caché local de preferencias
      */
     fun logout() {
         viewModelScope.launch {
             Log.d("AuthViewModel", "Cerrando sesión...")
 
+            val context = com.example.medicai.MedicAIApplication.getInstance()
+            val userId = _currentUser.value?.id ?: UserPreferencesManager.getUserId(context)
+
+            // ✅ Cancelar todas las alarmas del usuario ANTES de limpiar datos
+            if (userId != null) {
+                try {
+                    Log.d("AuthViewModel", "🔕 Cancelando todas las alarmas del usuario...")
+                    com.example.medicai.notifications.AlarmScheduler.cancelAllUserAlarms(context, userId)
+                    Log.d("AuthViewModel", "✅ Todas las alarmas canceladas")
+                } catch (e: Exception) {
+                    Log.e("AuthViewModel", "❌ Error cancelando alarmas: ${e.message}", e)
+                    // Continuar con el logout incluso si falla la cancelación de alarmas
+                }
+            } else {
+                Log.w("AuthViewModel", "⚠️ No se pudo obtener userId para cancelar alarmas")
+            }
+
             // ✅ Limpiar caché local de preferencias
-            UserPreferencesManager.clearAll(com.example.medicai.MedicAIApplication.getInstance())
+            UserPreferencesManager.clearAll(context)
             Log.d("AuthViewModel", "🗑️ Caché de preferencias limpiado")
 
-            // Limpiar datos locales primero
+            // Limpiar datos locales
             _currentUser.value = null
             _loginState.value = null
             _registerState.value = null
