@@ -2,7 +2,10 @@ package com.example.medicai.viewmodel
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import app.cash.turbine.test
+import android.content.Context
 import android.util.Log
+import com.example.medicai.MedicAIApplication
+import com.example.medicai.data.local.UserPreferencesManager
 import com.example.medicai.data.models.AuthState
 import com.example.medicai.data.models.RegistrationData
 import com.example.medicai.data.models.Result
@@ -30,6 +33,10 @@ class AuthViewModelTest {
 
     // Mock del repositorio
     private lateinit var mockRepository: AuthRepository
+    
+    // Mock de la aplicación y contexto
+    private lateinit var mockApplication: MedicAIApplication
+    private lateinit var mockContext: Context
     
     // ViewModel bajo prueba
     private lateinit var viewModel: AuthViewModel
@@ -64,6 +71,23 @@ class AuthViewModelTest {
         // Sobrecarga específica de Log.w(tag, tr)
         every { Log.w(any<String>(), any<Throwable>()) } returns 0
         
+        // Mock de MedicAIApplication para evitar UninitializedPropertyAccessException
+        mockApplication = mockk(relaxed = true)
+        mockContext = mockk(relaxed = true)
+        
+        mockkObject(MedicAIApplication.Companion)
+        every { MedicAIApplication.getInstance() } returns mockApplication
+        every { mockApplication.applicationContext } returns mockContext
+        
+        // Mock de UserPreferencesManager
+        mockkObject(UserPreferencesManager)
+        every { UserPreferencesManager.saveUserId(any(), any()) } just Runs
+        every { UserPreferencesManager.saveNotificationSettings(any(), any(), any()) } just Runs
+        every { UserPreferencesManager.getUserId(any()) } returns null
+        every { UserPreferencesManager.areNotificationsEnabled(any()) } returns true
+        every { UserPreferencesManager.getReminderMinutes(any()) } returns 15
+        every { UserPreferencesManager.clearAll(any()) } just Runs
+        
         // Crear mock del repositorio
         mockRepository = mockk(relaxed = true)
         
@@ -86,6 +110,8 @@ class AuthViewModelTest {
         // Limpiar los mocks
         clearAllMocks()
         unmockkStatic(Log::class)
+        unmockkObject(MedicAIApplication.Companion)
+        unmockkObject(UserPreferencesManager)
     }
 
     // ========== PRUEBAS DE LOGIN ==========
