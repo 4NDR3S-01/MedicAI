@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel para manejar toda la lógica de autenticación
- * ✅ Sincroniza preferencias con UserPreferencesManager para acceso rápido desde BroadcastReceivers
+ * Sincroniza preferencias con UserPreferencesManager para acceso rápido desde BroadcastReceivers
  */
 class AuthViewModel(
     private val repository: AuthRepository = AuthRepository()
