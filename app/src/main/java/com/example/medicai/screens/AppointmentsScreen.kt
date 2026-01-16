@@ -444,7 +444,7 @@ private fun AnimatedAppointmentCard(
             hoveredElevation = 3.dp
         ),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
         Column(
