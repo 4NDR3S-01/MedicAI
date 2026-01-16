@@ -292,7 +292,10 @@ private fun SuggestionCard(
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
     ) {
         Row(
             modifier = Modifier
@@ -371,9 +374,9 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
                 bottomEnd = if (isUser) 4.dp else 16.dp
             ),
             color = if (isUser)
-                com.example.medicai.ui.theme.AIMessageUserLight
+                MaterialTheme.colorScheme.primaryContainer
             else
-                com.example.medicai.ui.theme.AIMessageBotLight,
+                MaterialTheme.colorScheme.surfaceContainerHigh,
             shadowElevation = 2.dp
         ) {
             Column(
@@ -384,16 +387,16 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
                     Text(
                         text = message.text,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 } else {
                     // Mensaje de la IA - renderizar Markdown
                     MarkdownText(
                         markdown = message.text,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                         linkColor = MaterialTheme.colorScheme.tertiary
                     )
                 }
@@ -402,7 +405,7 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
                     text = message.timestamp,
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isUser)
-                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )

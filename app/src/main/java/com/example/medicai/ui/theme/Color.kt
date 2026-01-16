@@ -108,9 +108,9 @@ val OnInfoContainerDark = Color(0xFFBBDEFB)
 // ═══════════════════════════════════════════════════════════════════
 // BACKGROUND & SURFACE - Fondos y Superficies
 // ═══════════════════════════════════════════════════════════════════
-val BackgroundLight = Color(0xFFFBFCFF)     // Blanco azulado muy sutil
+val BackgroundLight = Color(0xFFF8F9FA)     // Gris muy claro para contraste sutil
 val OnBackgroundLight = Color(0xFF191C1E)
-val SurfaceLight = Color(0xFFFBFCFF)
+val SurfaceLight = Color(0xFFFFFFFF)        // Blanco puro para cards
 val OnSurfaceLight = Color(0xFF191C1E)
 val SurfaceVariantLight = Color(0xFFDEE3EB)
 val OnSurfaceVariantLight = Color(0xFF42474E)
@@ -118,7 +118,7 @@ val OutlineLight = Color(0xFF72777F)
 
 val BackgroundDark = Color(0xFF121212)      // Material Design estándar para mejor contraste
 val OnBackgroundDark = Color(0xFFE6E1E5)    // Texto más brillante para mejor legibilidad
-val SurfaceDark = Color(0xFF121212)
+val SurfaceDark = Color(0xFF1D1B20)         // Cards más claras que el fondo
 val OnSurfaceDark = Color(0xFFE6E1E5)
 val SurfaceVariantDark = Color(0xFF49454F)  // Más contraste
 val OnSurfaceVariantDark = Color(0xFFCAC4D0) // Mayor luminosidad
@@ -148,12 +148,12 @@ val OnGradientDark = Color(0xFFFFFFFF)          // Texto blanco sobre gradientes
 // ═══════════════════════════════════════════════════════════════════
 // CARD BACKGROUNDS - Fondos de tarjetas mejorados
 // ═══════════════════════════════════════════════════════════════════
-val CardBackgroundLight = Color(0xFFFFFFFF)      // Blanco puro para contraste
+val CardBackgroundLight = Color(0xFFFFFFFF)      // Blanco puro para máximo contraste
 val CardBackgroundDark = Color(0xFF1D1B20)       // Material 3 surface en modo oscuro
 
 // Card variants para diferentes estados
-val CardBackgroundLightElevated = Color(0xFFF5F7FA)
-val CardBackgroundDarkElevated = Color(0xFF2B2930)  // Elevación más visible
+val CardBackgroundLightElevated = Color(0xFFFFFFFF)  // Blanco puro - elevación da profundidad
+val CardBackgroundDarkElevated = Color(0xFF2B2930)   // Más claro que surface para contraste
 
 // ═══════════════════════════════════════════════════════════════════
 // SEMANTIC COLORS - Colores semánticos para estados específicos

@@ -149,7 +149,7 @@ fun MedicinesScreen(
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
-                        top = 8.dp,
+                        top = 12.dp,
                         bottom = 100.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -437,7 +437,7 @@ private fun AnimatedMedicineCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(
@@ -445,17 +445,23 @@ private fun AnimatedMedicineCard(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessLow
                 )
-            ),
+            )
+            .clip(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp,
+            hoveredElevation = 3.dp
         ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+        ) {
             // Barra superior con color
             Box(
                 modifier = Modifier
@@ -474,7 +480,8 @@ private fun AnimatedMedicineCard(
                                     com.example.medicai.ui.theme.MedicineInactiveLight.copy(alpha = 0.3f)
                                 )
                             }
-                        )
+                        ),
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
                     )
             )
 
