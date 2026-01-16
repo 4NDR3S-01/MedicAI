@@ -471,8 +471,8 @@ private fun AnimatedMedicineCard(
                         brush = Brush.horizontalGradient(
                             colors = if (medicine.active) {
                                 listOf(
-                                    com.example.medicai.ui.theme.SuccessLight,
-                                    com.example.medicai.ui.theme.SecondaryLight
+                                    com.example.medicai.ui.theme.GradientStart,
+                                    com.example.medicai.ui.theme.GradientMid
                                 )
                             } else {
                                 listOf(
@@ -498,7 +498,7 @@ private fun AnimatedMedicineCard(
                         .size(64.dp)
                         .background(
                             color = if (medicine.active)
-                                com.example.medicai.ui.theme.SuccessContainerLight
+                                com.example.medicai.ui.theme.GradientStart.copy(alpha = 0.15f)
                             else
                                 MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(16.dp)
@@ -509,7 +509,7 @@ private fun AnimatedMedicineCard(
                         imageVector = Icons.Filled.Medication,
                         contentDescription = null,
                         tint = if (medicine.active)
-                            com.example.medicai.ui.theme.SuccessLight
+                            com.example.medicai.ui.theme.GradientStart
                         else
                             com.example.medicai.ui.theme.MedicineInactiveLight,
                         modifier = Modifier.size(36.dp)
@@ -865,7 +865,11 @@ private fun EmptyMedicinesState(
                     modifier = Modifier
                         .height(56.dp)
                         .widthIn(min = 200.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = com.example.medicai.ui.theme.GradientStart,
+                        contentColor = com.example.medicai.ui.theme.OnGradientLight
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
@@ -892,17 +896,18 @@ private fun ModernFloatingActionButton(
         onClick = onClick,
         modifier = modifier.size(64.dp),
         shape = CircleShape,
-        containerColor = MaterialTheme.colorScheme.primary,
+        containerColor = com.example.medicai.ui.theme.GradientStart,
         elevation = FloatingActionButtonDefaults.elevation(
             defaultElevation = 8.dp,
-            pressedElevation = 12.dp
+            pressedElevation = 12.dp,
+            hoveredElevation = 10.dp
         )
     ) {
         Icon(
             imageVector = Icons.Filled.Add,
             contentDescription = "Agregar medicamento",
             modifier = Modifier.size(28.dp),
-            tint = MaterialTheme.colorScheme.onPrimary
+            tint = OnGradientLight
         )
     }
 }

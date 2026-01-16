@@ -171,19 +171,12 @@ fun AppointmentsScreen(
 
         /** ───────────────────── FAB ───────────────────── */
         if (!isLoading && filteredAppointments.isNotEmpty()) {
-            FloatingActionButton(
+            ModernFloatingActionButton(
                 onClick = { showAddDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(24.dp),
-                containerColor = MaterialTheme.colorScheme.secondary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Agregar cita",
-                    tint = MaterialTheme.colorScheme.onSecondary
-                )
-            }
+                    .padding(24.dp)
+            )
         }
     }
 
@@ -863,7 +856,11 @@ private fun EmptyAppointmentsState(
                     modifier = Modifier
                         .height(56.dp)
                         .widthIn(min = 200.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = com.example.medicai.ui.theme.GradientStartSecondary,
+                        contentColor = com.example.medicai.ui.theme.OnGradientLight
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
@@ -890,17 +887,18 @@ private fun ModernFloatingActionButton(
         onClick = onClick,
         modifier = modifier.size(64.dp),
         shape = CircleShape,
-        containerColor = MaterialTheme.colorScheme.secondary,
+        containerColor = com.example.medicai.ui.theme.GradientStartSecondary,
         elevation = FloatingActionButtonDefaults.elevation(
             defaultElevation = 8.dp,
-            pressedElevation = 12.dp
+            pressedElevation = 12.dp,
+            hoveredElevation = 10.dp
         )
     ) {
         Icon(
             imageVector = Icons.Filled.Add,
             contentDescription = "Agregar cita",
             modifier = Modifier.size(28.dp),
-            tint = MaterialTheme.colorScheme.onSecondary
+            tint = OnGradientLight
         )
     }
 }
