@@ -32,6 +32,10 @@ import android.util.Log
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.data.models.PredefinedAvatars
 import com.example.medicai.viewmodel.AIViewModel
+import com.example.medicai.ui.theme.GradientStartTertiary
+import com.example.medicai.ui.theme.GradientEndTertiary
+import com.example.medicai.ui.theme.OnGradientLight
+import com.example.medicai.ui.theme.UpdateSystemBars
 import kotlinx.coroutines.launch
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import coil.compose.AsyncImage
@@ -52,6 +56,12 @@ fun AIAssistantScreen(
     val messages by aiViewModel.messages.collectAsState()
     val isLoading by aiViewModel.isLoading.collectAsState()
     val error by aiViewModel.error.collectAsState()
+
+    // Actualizar status bar con color del header (gradiente morado)
+    UpdateSystemBars(
+        statusBarColor = GradientStartTertiary,
+        darkIcons = false
+    )
 
     var userInput by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -179,8 +189,8 @@ private fun ModernAIHeader(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            com.example.medicai.ui.theme.GradientStart,
-                            com.example.medicai.ui.theme.GradientEnd
+                            com.example.medicai.ui.theme.GradientStartTertiary,
+                            com.example.medicai.ui.theme.GradientEndTertiary
                         )
                     ),
                     shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
@@ -204,7 +214,7 @@ private fun ModernAIHeader(
                     Icon(
                         imageVector = Icons.Filled.SmartToy,
                         contentDescription = "Asistente IA Icon",
-                        tint = Color.White,
+                        tint = OnGradientLight,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -214,12 +224,12 @@ private fun ModernAIHeader(
                         text = "Asistente Médico IA",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = OnGradientLight
                     )
                     Text(
                         text = "Hola $userName, Soy tu asistente médico",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.85f)
+                        color = OnGradientLight.copy(alpha = 0.85f)
                     )
                 }
             }
@@ -361,9 +371,9 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
                 bottomEnd = if (isUser) 4.dp else 16.dp
             ),
             color = if (isUser)
-                MaterialTheme.colorScheme.primary
+                com.example.medicai.ui.theme.AIMessageUserLight
             else
-                MaterialTheme.colorScheme.surfaceVariant,
+                com.example.medicai.ui.theme.AIMessageBotLight,
             shadowElevation = 2.dp
         ) {
             Column(

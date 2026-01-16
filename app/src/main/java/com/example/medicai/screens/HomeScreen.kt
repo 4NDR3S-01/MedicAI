@@ -28,6 +28,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.medicai.ui.theme.OnGradientLight
+import com.example.medicai.ui.theme.UpdateSystemBars
+import com.example.medicai.ui.theme.GradientStart
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.medicai.data.models.Medicine
 import com.example.medicai.data.models.PredefinedAvatars
@@ -55,6 +58,12 @@ fun HomeScreen(
     val currentUser by authViewModel.currentUser.collectAsState()
     val medicines by medicineViewModel.medicines.collectAsState()
     val appointments by appointmentViewModel.appointments.collectAsState()
+
+    // Actualizar status bar con color del header (gradiente azul)
+    UpdateSystemBars(
+        statusBarColor = GradientStart,
+        darkIcons = false // Iconos claros sobre gradiente oscuro
+    )
 
     val currentDate = remember {
         SimpleDateFormat("EEEE, dd 'de' MMMM", Locale("es", "ES")).format(Date())
@@ -231,6 +240,7 @@ private fun ModernStickyHeader(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         com.example.medicai.ui.theme.GradientStart,
+                        com.example.medicai.ui.theme.GradientMid,
                         com.example.medicai.ui.theme.GradientEnd
                     )
                 ),
@@ -253,12 +263,12 @@ private fun ModernStickyHeader(
                         text = "Hola, $userName",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = OnGradientLight
                     )
                     Text(
                         text = currentDate.capitalize(),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White.copy(alpha = 0.9f)
+                        color = OnGradientLight.copy(alpha = 0.9f)
                     )
                 }
 
@@ -267,7 +277,7 @@ private fun ModernStickyHeader(
                     modifier = Modifier.size(56.dp),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primary,
-                    border = BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
+                    border = BorderStroke(2.dp, OnGradientLight.copy(alpha = 0.5f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (avatarUrl != null && PredefinedAvatars.isEmojiAvatar(avatarUrl)) {
@@ -315,7 +325,7 @@ private fun ModernStickyHeader(
                 Icon(
                     imageVector = statusIcon,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = OnGradientLight,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -323,13 +333,13 @@ private fun ModernStickyHeader(
                     text = currentTime,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = OnGradientLight
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = "• $statusText",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = OnGradientLight.copy(alpha = 0.9f),
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )

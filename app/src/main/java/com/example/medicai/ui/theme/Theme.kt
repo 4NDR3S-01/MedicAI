@@ -15,6 +15,27 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ * 📋 GUÍA DE USO DE TARJETAS (CARDS):
+ * ═══════════════════════════════════════════════════════════════════
+ * 
+ * Card() con surface:
+ *   → Tarjetas base, sin elevación
+ *   → Contenido estándar sin interacción importante
+ *   → Ejemplo: Detalles informativos, texto expandible
+ * 
+ * ElevatedCard() con surfaceContainerHigh:
+ *   → Tarjetas interactivas que requieren énfasis visual
+ *   → Elementos clickeables o con acciones principales
+ *   → Ejemplo: Tarjetas de medicamentos, citas, resumen en home
+ * 
+ * OutlinedCard():
+ *   → Tarjetas secundarias con menor peso visual
+ *   → Opciones, preferencias, configuraciones
+ *   → Ejemplo: Formularios, selección de opciones
+ */
+
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryDark,
     onPrimary = OnPrimaryDark,
@@ -39,7 +60,7 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = OnSurfaceVariantDark,
     outline = OutlineDark,
-    surfaceContainerHigh = CardBackgroundDark
+    surfaceContainerHigh = CardBackgroundDarkElevated
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -66,7 +87,7 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = OnSurfaceVariantLight,
     outline = OutlineLight,
-    surfaceContainerHigh = CardBackgroundLight
+    surfaceContainerHigh = CardBackgroundLightElevated
 )
 
 @Composable
@@ -89,13 +110,10 @@ fun MedicAITheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Use gradient color for status bar to match header
-            window.statusBarColor = if (darkTheme) {
-                GradientStart.toArgb()
-            } else {
-                GradientStart.toArgb()
-            }
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false // Always dark icons on gradient
+            // Status bar transparente por defecto - cada pantalla define su color
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            // Habilitar drawing detrás de system bars
+            WindowCompat.setDecorFitsSystemWindows(window, false)
         }
     }
 
@@ -104,4 +122,23 @@ fun MedicAITheme(
         typography = Typography,
         content = content
     )
+}
+
+/**
+ * Composable para actualizar el color del Status Bar según el header de la pantalla
+ * Úsalo en cada pantalla con el gradiente correspondiente
+ */
+@Composable
+fun UpdateSystemBars(
+    statusBarColor: androidx.compose.ui.graphics.Color,
+    darkIcons: Boolean = false
+) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = statusBarColor.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkIcons
+        }
+    }
 }

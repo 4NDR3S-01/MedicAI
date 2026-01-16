@@ -42,6 +42,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.data.models.PredefinedAvatars
 import com.example.medicai.sensors.SensorListScreen
+import com.example.medicai.ui.theme.GradientStart
+import com.example.medicai.ui.theme.GradientEnd
+import com.example.medicai.ui.theme.OnGradientLight
+import com.example.medicai.ui.theme.UpdateSystemBars
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
@@ -57,6 +61,12 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val currentUser by authViewModel.currentUser.collectAsState()
+
+    // Actualizar status bar con color del header (gradiente azul)
+    UpdateSystemBars(
+        statusBarColor = GradientStart,
+        darkIcons = false
+    )
 
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
@@ -446,7 +456,7 @@ private fun ProfileHeader(
                 text = userName,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = OnGradientLight
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -455,7 +465,7 @@ private fun ProfileHeader(
             Text(
                 text = userEmail,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.8f)
+                color = OnGradientLight.copy(alpha = 0.8f)
             )
 
             Spacer(modifier = Modifier.height(16.dp))

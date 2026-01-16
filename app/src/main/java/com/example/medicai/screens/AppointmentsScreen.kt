@@ -31,6 +31,10 @@ import com.example.medicai.data.models.AppointmentRequest
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.viewmodel.AppointmentViewModel
 import com.example.medicai.sensors.LocationPickerDialog
+import com.example.medicai.ui.theme.GradientStartSecondary
+import com.example.medicai.ui.theme.GradientEndSecondary
+import com.example.medicai.ui.theme.OnGradientLight
+import com.example.medicai.ui.theme.UpdateSystemBars
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -50,6 +54,12 @@ fun AppointmentsScreen(
     val isLoading by appointmentViewModel.isLoading.collectAsState()
     val error by appointmentViewModel.error.collectAsState()
     val successMessage by appointmentViewModel.successMessage.collectAsState()
+
+    // Actualizar status bar con color del header (gradiente verde)
+    UpdateSystemBars(
+        statusBarColor = GradientStartSecondary,
+        darkIcons = false
+    )
 
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
@@ -214,8 +224,8 @@ private fun ModernAppointmentHeader(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        com.example.medicai.ui.theme.GradientStart,
-                        com.example.medicai.ui.theme.GradientEnd
+                        com.example.medicai.ui.theme.GradientStartSecondary,
+                        com.example.medicai.ui.theme.GradientEndSecondary
                     )
                 ),
                 shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
@@ -244,7 +254,7 @@ private fun ModernAppointmentHeader(
                         Icon(
                             imageVector = Icons.Filled.CalendarMonth,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = OnGradientLight,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -254,12 +264,12 @@ private fun ModernAppointmentHeader(
                             text = "Mis Citas Médicas",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = OnGradientLight
                         )
                         Text(
                             text = "Gestiona tus consultas",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = OnGradientLight.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -405,9 +415,9 @@ private fun AnimatedAppointmentCard(
     var expanded by remember { mutableStateOf(false) }
 
     val statusColor = when (appointment.status) {
-        "scheduled" -> MaterialTheme.colorScheme.primary
-        "completed" -> MaterialTheme.colorScheme.tertiary
-        "cancelled" -> MaterialTheme.colorScheme.error
+        "scheduled" -> com.example.medicai.ui.theme.AppointmentScheduledLight
+        "completed" -> com.example.medicai.ui.theme.AppointmentCompletedLight
+        "cancelled" -> com.example.medicai.ui.theme.AppointmentCancelledLight
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
 

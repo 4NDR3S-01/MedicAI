@@ -41,6 +41,9 @@ import com.example.medicai.data.models.Medicine
 import com.example.medicai.data.models.MedicineRequest
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.viewmodel.MedicineViewModel
+import com.example.medicai.ui.theme.GradientStart
+import com.example.medicai.ui.theme.OnGradientLight
+import com.example.medicai.ui.theme.UpdateSystemBars
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -60,6 +63,12 @@ fun MedicinesScreen(
     val isLoading by medicineViewModel.isLoading.collectAsState()
     val error by medicineViewModel.error.collectAsState()
     val successMessage by medicineViewModel.successMessage.collectAsState()
+
+    // Actualizar status bar con color del header (gradiente azul)
+    UpdateSystemBars(
+        statusBarColor = GradientStart,
+        darkIcons = false
+    )
 
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
@@ -240,6 +249,7 @@ private fun ModernMedicineHeader(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         com.example.medicai.ui.theme.GradientStart,
+                        com.example.medicai.ui.theme.GradientMid,
                         com.example.medicai.ui.theme.GradientEnd
                     )
                 ),
@@ -269,7 +279,7 @@ private fun ModernMedicineHeader(
                         Icon(
                             imageVector = Icons.Filled.Medication,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = OnGradientLight,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -279,12 +289,12 @@ private fun ModernMedicineHeader(
                             text = "Mis Medicamentos",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = OnGradientLight
                         )
                         Text(
                             text = "Gestiona tus tratamientos",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = OnGradientLight.copy(alpha = 0.8f)
                         )
                     }
                 }
@@ -455,13 +465,13 @@ private fun AnimatedMedicineCard(
                         brush = Brush.horizontalGradient(
                             colors = if (medicine.active) {
                                 listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.tertiary
+                                    com.example.medicai.ui.theme.SuccessLight,
+                                    com.example.medicai.ui.theme.SecondaryLight
                                 )
                             } else {
                                 listOf(
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                                    com.example.medicai.ui.theme.MedicineInactiveLight.copy(alpha = 0.5f),
+                                    com.example.medicai.ui.theme.MedicineInactiveLight.copy(alpha = 0.3f)
                                 )
                             }
                         )
@@ -481,9 +491,9 @@ private fun AnimatedMedicineCard(
                         .size(64.dp)
                         .background(
                             color = if (medicine.active)
-                                MaterialTheme.colorScheme.primaryContainer
+                                com.example.medicai.ui.theme.SuccessContainerLight
                             else
-                                MaterialTheme.colorScheme.errorContainer,
+                                MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(16.dp)
                         ),
                     contentAlignment = Alignment.Center
@@ -492,9 +502,9 @@ private fun AnimatedMedicineCard(
                         imageVector = Icons.Filled.Medication,
                         contentDescription = null,
                         tint = if (medicine.active)
-                            MaterialTheme.colorScheme.primary
+                            com.example.medicai.ui.theme.SuccessLight
                         else
-                            MaterialTheme.colorScheme.error,
+                            com.example.medicai.ui.theme.MedicineInactiveLight,
                         modifier = Modifier.size(36.dp)
                     )
                 }
