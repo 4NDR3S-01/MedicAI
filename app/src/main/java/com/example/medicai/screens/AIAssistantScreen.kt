@@ -321,12 +321,12 @@ private fun EmptyAIState(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 28.dp, vertical = 32.dp)
+            .padding(horizontal = 28.dp, vertical = 16.dp)
             .padding(bottom = 220.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(28.dp)
     ) {
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         
         // Mensaje de bienvenida mejorado con animación
         androidx.compose.animation.AnimatedVisibility(
@@ -338,28 +338,6 @@ private fun EmptyAIState(modifier: Modifier = Modifier) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    MaterialTheme.colorScheme.tertiaryContainer,
-                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
-                                )
-                            ),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.SmartToy,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "💬 Conversación continua",
                     style = MaterialTheme.typography.titleLarge,
