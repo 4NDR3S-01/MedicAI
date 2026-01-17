@@ -3,6 +3,11 @@ package com.example.medicai.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -29,6 +34,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,6 +67,24 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val currentUser by authViewModel.currentUser.collectAsState()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    // Estado para forzar recomposición cuando regresa de configuración
+    var refreshKey by remember { mutableStateOf(0) }
+
+    // Detectar cuando la app regresa al primer plano
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                // Incrementar key para forzar verificación de permisos
+                refreshKey++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Actualizar status bar con color del header (gradiente azul)
     UpdateSystemBars(
@@ -234,6 +258,7 @@ fun ProfileScreen(
     if (showNotificationSettings) {
         NotificationSettingsDialog(
             authViewModel = authViewModel,
+            refreshKey = refreshKey,
             onDismiss = { showNotificationSettings = false }
         )
     }
@@ -728,19 +753,98 @@ private fun LogoutConfirmDialog(
 @Composable
 private fun NotificationSettingsDialog(
     authViewModel: com.example.medicai.viewmodel.AuthViewModel,
+    refreshKey: Int,
     onDismiss: () -> Unit
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
-    // Inicializar estados desde el perfil actual (o valores por defecto)
-    var notificationsEnabled by rememberSaveable { mutableStateOf(currentUser?.notifications_enabled ?: true) }
+    // Función para verificar el permiso del sistema
+    fun checkSystemPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // En Android < 13 no se necesita permiso
+        }
+    }
+
+    // Estado del permiso del sistema que se actualiza automáticamente
+    var hasSystemPermission by remember(refreshKey) { 
+        mutableStateOf(checkSystemPermission()) 
+    }
+    
+    // Inicializar estado basado en:
+    // - Si NO hay permiso del sistema: siempre desactivado
+    // - Si SÍ hay permiso del sistema: usar la preferencia guardada en BD
+    var notificationsEnabled by remember(refreshKey, hasSystemPermission, currentUser?.notifications_enabled) { 
+        mutableStateOf(
+            if (hasSystemPermission) {
+                currentUser?.notifications_enabled ?: true
+            } else {
+                false // Sin permiso del sistema, forzar desactivado
+            }
+        )
+    }
     var reminderMinutes by rememberSaveable { mutableStateOf((currentUser?.reminder_minutes ?: 15).toFloat()) }
 
+    // Verificar permiso cada vez que la app regresa al primer plano
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                // Verificar permiso cuando regresa de la configuración
+                val currentPermission = checkSystemPermission()
+                hasSystemPermission = currentPermission
+                
+                // Actualizar el estado según el permiso del sistema
+                if (!currentPermission) {
+                    // Si el permiso fue desactivado, forzar desactivar
+                    notificationsEnabled = false
+                } else {
+                    // Si el permiso fue activado, restaurar la preferencia del usuario
+                    notificationsEnabled = currentUser?.notifications_enabled ?: true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Launcher para solicitar permiso de notificaciones
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasSystemPermission = isGranted
+        if (isGranted) {
+            notificationsEnabled = true
+            Toast.makeText(context, "✅ Permiso de notificaciones concedido", Toast.LENGTH_SHORT).show()
+        } else {
+            notificationsEnabled = false
+            Toast.makeText(
+                context,
+                "⚠️ Abre la configuración para activar las notificaciones",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // Función para abrir la configuración del sistema
+    fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+        }
+        context.startActivity(intent)
+    }
+
     // Preferencias locales para sonido y vibración (DataStore)
-    val ctx = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val soundEnabled by NotificationPreferencesDataStore.soundEnabledFlow(ctx).collectAsState(initial = true)
-    val vibrationEnabled by NotificationPreferencesDataStore.vibrationEnabledFlow(ctx).collectAsState(initial = true)
+    val soundEnabled by NotificationPreferencesDataStore.soundEnabledFlow(context).collectAsState(initial = true)
+    val vibrationEnabled by NotificationPreferencesDataStore.vibrationEnabledFlow(context).collectAsState(initial = true)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -764,10 +868,67 @@ private fun NotificationSettingsDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Advertencia y botón para ir a configuración si no hay permiso del sistema
+                if (!hasSystemPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Permiso de notificaciones no concedido",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            
+                            Button(
+                                onClick = { openAppSettings() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Abrir Configuración")
+                            }
+                        }
+                    }
+                }
+                
                 SettingsToggle(
                     title = "Activar notificaciones",
                     checked = notificationsEnabled,
-                    onCheckedChange = { notificationsEnabled = it }
+                    onCheckedChange = { enabled ->
+                        if (enabled && !hasSystemPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            // Si intenta activar pero no tiene permiso, abrir configuración directamente
+                            openAppSettings()
+                        } else {
+                            notificationsEnabled = enabled
+                        }
+                    }
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -804,9 +965,9 @@ private fun NotificationSettingsDialog(
                     onCheckedChange = { enabled ->
                         coroutineScope.launch {
                             // Guardar en DataStore
-                            NotificationPreferencesDataStore.setSoundEnabled(ctx, enabled)
+                            NotificationPreferencesDataStore.setSoundEnabled(context, enabled)
                             // ✅ También guardar en UserPreferencesManager para acceso rápido
-                            UserPreferencesManager.saveSoundEnabled(ctx, enabled)
+                            UserPreferencesManager.saveSoundEnabled(context, enabled)
                         }
                     }
                 )
@@ -817,9 +978,9 @@ private fun NotificationSettingsDialog(
                     onCheckedChange = { enabled ->
                         coroutineScope.launch {
                             // Guardar en DataStore
-                            NotificationPreferencesDataStore.setVibrationEnabled(ctx, enabled)
+                            NotificationPreferencesDataStore.setVibrationEnabled(context, enabled)
                             // ✅ También guardar en UserPreferencesManager para acceso rápido
-                            UserPreferencesManager.saveVibrationEnabled(ctx, enabled)
+                            UserPreferencesManager.saveVibrationEnabled(context, enabled)
                         }
                     }
                 )

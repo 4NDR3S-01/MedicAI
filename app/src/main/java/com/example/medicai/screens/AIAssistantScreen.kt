@@ -1,6 +1,14 @@
 package com.example.medicai.screens
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -56,6 +65,8 @@ fun AIAssistantScreen(
     val messages by aiViewModel.messages.collectAsState()
     val isLoading by aiViewModel.isLoading.collectAsState()
     val error by aiViewModel.error.collectAsState()
+
+    var showClearDialog by remember { mutableStateOf(false) }
 
     // Actualizar status bar con color del header (gradiente morado)
     UpdateSystemBars(
@@ -102,7 +113,9 @@ fun AIAssistantScreen(
         ) {
             // Header
             ModernAIHeader(
-                userName = currentUser?.full_name?.split(" ")?.firstOrNull() ?: "Usuario"
+                userName = currentUser?.full_name?.split(" ")?.firstOrNull() ?: "Usuario",
+                hasMessages = messages.isNotEmpty(),
+                onClearChat = { showClearDialog = true }
             )
 
             // Mensajes del chat
@@ -171,21 +184,49 @@ fun AIAssistantScreen(
                 )
         )
     }
+
+    // Diálogo de confirmación para limpiar chat
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text("🗑️ Limpiar conversación") },
+            text = { 
+                Text("¿Estás seguro de que deseas eliminar toda la conversación? Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        aiViewModel.clearChat()
+                        showClearDialog = false
+                    }
+                ) {
+                    Text("Limpiar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun ModernAIHeader(
-    userName: String
+    userName: String,
+    hasMessages: Boolean = false,
+    onClearChat: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shadowElevation = 4.dp,
-        shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+        shadowElevation = 6.dp,
+        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
+                .height(85.dp)
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
@@ -193,20 +234,26 @@ private fun ModernAIHeader(
                             com.example.medicai.ui.theme.GradientEndTertiary
                         )
                     ),
-                    shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+                    shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
                 )
+                .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(52.dp)
                         .background(
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
+                                )
+                            ),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -215,22 +262,51 @@ private fun ModernAIHeader(
                         imageVector = Icons.Filled.SmartToy,
                         contentDescription = "Asistente IA Icon",
                         tint = OnGradientLight,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(30.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Asistente Médico IA",
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = OnGradientLight
                     )
-                    Text(
-                        text = "Hola $userName, Soy tu asistente médico",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = OnGradientLight.copy(alpha = 0.85f)
-                    )
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = hasMessages,
+                        label = "subtitle"
+                    ) { hasMsg ->
+                        Text(
+                            text = if (hasMsg) "💬 Conversación activa" else "Hola $userName 👋",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = OnGradientLight.copy(alpha = 0.9f)
+                        )
+                    }
+                }
+                
+                // Botón para limpiar chat con animación (solo visible si hay mensajes)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = hasMessages,
+                    enter = fadeIn() + androidx.compose.animation.scaleIn(),
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut()
+                ) {
+                    IconButton(
+                        onClick = onClearChat,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                                CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteSweep,
+                            contentDescription = "Limpiar chat",
+                            tint = OnGradientLight,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }
@@ -245,25 +321,81 @@ private fun EmptyAIState(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 32.dp, vertical = 24.dp)
-            .padding(bottom = 100.dp),
+            .padding(horizontal = 28.dp, vertical = 32.dp)
+            .padding(bottom = 220.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(28.dp)
     ) {
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Mensaje de bienvenida mejorado con animación
+        androidx.compose.animation.AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(animationSpec = tween(600)) + 
+                    slideInVertically(animationSpec = tween(600)) { -50 }
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.tertiaryContainer,
+                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                                )
+                            ),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SmartToy,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "💬 Conversación continua",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Puedo recordar toda nuestra conversación\ny mantener el contexto de tus preguntas",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        
+        Divider(
+            modifier = Modifier.width(100.dp),
+            color = MaterialTheme.colorScheme.outlineVariant,
+            thickness = 2.dp
+        )
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = "Puedo ayudarte con:",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "¿En qué puedo ayudarte hoy?",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             SuggestionCard(
                 icon = Icons.Filled.Medication,
@@ -272,13 +404,18 @@ private fun EmptyAIState(modifier: Modifier = Modifier) {
             )
             SuggestionCard(
                 icon = Icons.Filled.HealthAndSafety,
-                title = "Síntomas y condiciones",
-                description = "Consultas generales de salud"
+                title = "Consultas sobre síntomas",
+                description = "Información sobre condiciones de salud"
             )
             SuggestionCard(
-                icon = Icons.Filled.Schedule,
-                title = "Recordatorios y citas",
-                description = "Organiza tu tratamiento médico"
+                icon = Icons.Filled.LocalHospital,
+                title = "Primeros auxilios básicos",
+                description = "Consejos para emergencias menores"
+            )
+            SuggestionCard(
+                icon = Icons.Filled.FitnessCenter,
+                title = "Vida saludable y prevención",
+                description = "Tips de nutrición, ejercicio y bienestar"
             )
         }
     }
@@ -292,7 +429,7 @@ private fun SuggestionCard(
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
@@ -300,36 +437,42 @@ private fun SuggestionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .background(
-                        MaterialTheme.colorScheme.tertiaryContainer,
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.tertiaryContainer,
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                            )
+                        ),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = title, // Descripción accesible para TalkBack
+                    contentDescription = title,
                     tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = description,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -340,11 +483,17 @@ private fun SuggestionCard(
 @Composable
 private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, userAvatar: String? = null) {
     val isUser = message.isUser
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    
+    // Animación de aparición
+    androidx.compose.animation.AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(animationSpec = tween(300)) + 
+                slideInVertically(animationSpec = tween(300)) { it / 2 }
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        ) {
         if (!isUser) {
             Box(
                 modifier = Modifier
@@ -366,41 +515,44 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
         }
 
         Surface(
-            modifier = Modifier.widthIn(max = 280.dp),
+            modifier = Modifier.widthIn(max = 300.dp),
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = if (isUser) 20.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 20.dp
             ),
             color = if (isUser)
                 MaterialTheme.colorScheme.primaryContainer
             else
                 MaterialTheme.colorScheme.surfaceContainerHigh,
-            shadowElevation = 2.dp
+            shadowElevation = 3.dp,
+            tonalElevation = if (isUser) 2.dp else 1.dp
         ) {
             Column(
-                modifier = Modifier.padding(12.dp)
+                modifier = Modifier.padding(14.dp)
             ) {
                 if (isUser) {
                     // Mensaje del usuario - texto simple
                     Text(
                         text = message.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        lineHeight = 22.sp
                     )
                 } else {
                     // Mensaje de la IA - renderizar Markdown
                     MarkdownText(
                         markdown = message.text,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            lineHeight = 22.sp
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
                         linkColor = MaterialTheme.colorScheme.tertiary
                     )
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = message.timestamp,
                     style = MaterialTheme.typography.labelSmall,
@@ -455,63 +607,79 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
                 }
             }
         }
+        }
     }
 }
 
 @Composable
 private fun TypingIndicator() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
+    androidx.compose.animation.AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(animationSpec = tween(300)) + 
+                slideInVertically(animationSpec = tween(300)) { it / 2 }
     ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .background(
-                    MaterialTheme.colorScheme.tertiaryContainer,
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
         ) {
-            Icon(
-                imageVector = Icons.Filled.SmartToy,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shadowElevation = 2.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                repeat(3) { index ->
-                    val infiniteTransition = rememberInfiniteTransition(label = "typing")
-                    val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(600, delayMillis = index * 200),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "alpha"
-                    )
+                Icon(
+                    imageVector = Icons.Filled.SmartToy,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
 
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                MaterialTheme.colorScheme.tertiary.copy(alpha = alpha),
-                                CircleShape
-                            )
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shadowElevation = 3.dp,
+                tonalElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MedicAI está escribiendo",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    repeat(3) { index ->
+                        val infiniteTransition = rememberInfiniteTransition(label = "typing")
+                        val offsetY by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = -8f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(500, delayMillis = index * 150, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "offsetY"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .offset(y = offsetY.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.tertiary,
+                                    CircleShape
+                                )
+                        )
+                    }
                 }
             }
         }
@@ -527,10 +695,11 @@ private fun MessageInputBar(
     modifier: Modifier = Modifier
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    val isSendEnabled = isEnabled && value.isNotBlank()
     
     Surface(
         modifier = modifier,
-        shadowElevation = 8.dp,
+        shadowElevation = 12.dp,
         tonalElevation = 3.dp,
         color = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
@@ -538,52 +707,80 @@ private fun MessageInputBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Escribe tu pregunta...") },
-                shape = RoundedCornerShape(24.dp),
+                placeholder = { 
+                    Text(
+                        "Pregúntame sobre salud, medicamentos...",
+                        style = MaterialTheme.typography.bodyMedium
+                    ) 
+                },
+                shape = RoundedCornerShape(28.dp),
                 enabled = isEnabled,
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Send
                 ),
                 keyboardActions = KeyboardActions(
                     onSend = {
-                        if (isEnabled && value.isNotBlank()) {
+                        if (isSendEnabled) {
                             onSend()
                             keyboardController?.hide()
                         }
                     }
                 ),
-                maxLines = 4,
+                maxLines = 5,
+                textStyle = MaterialTheme.typography.bodyLarge,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.tertiary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 )
             )
 
+            val scale = androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (isSendEnabled) 1f else 0.9f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "scale"
+            )
+            
             FloatingActionButton(
-                onClick = onSend,
-                modifier = Modifier.size(56.dp),
-                containerColor = if (isEnabled && value.isNotBlank()) {
+                onClick = {
+                    if (isSendEnabled) {
+                        onSend()
+                        keyboardController?.hide()
+                    }
+                },
+                modifier = Modifier
+                    .size(58.dp)
+                    .graphicsLayer {
+                        scaleX = scale.value
+                        scaleY = scale.value
+                    },
+                containerColor = if (isSendEnabled) {
                     MaterialTheme.colorScheme.tertiary
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
                 },
                 elevation = FloatingActionButtonDefaults.elevation(
-                    defaultElevation = 4.dp,
-                    pressedElevation = 8.dp
+                    defaultElevation = 6.dp,
+                    pressedElevation = 12.dp
                 )
             ) {
                 Icon(
                     imageVector = Icons.Filled.Send,
-                    contentDescription = "Enviar",
-                    tint = if (isEnabled && value.isNotBlank()) {
+                    contentDescription = "Enviar mensaje",
+                    modifier = Modifier.size(24.dp),
+                    tint = if (isSendEnabled) {
                         MaterialTheme.colorScheme.onTertiary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant

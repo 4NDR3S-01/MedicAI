@@ -54,10 +54,20 @@ class AIViewModel : ViewModel() {
                 _messages.value = _messages.value + userChatMessage
 
                 Log.d("AIViewModel", "📤 Enviando mensaje: $userMessage")
-                Log.d("AIViewModel", "📊 Total mensajes: ${_messages.value.size}")
+                Log.d("AIViewModel", "📊 Total mensajes en conversación: ${_messages.value.size}")
 
-                // Llamar a la API de Groq
-                val aiResponse = GroqClient.sendMessage(userMessage)
+                // Construir historial conversacional para mantener contexto
+                val conversationHistory = _messages.value.map { msg ->
+                    com.example.medicai.data.remote.GroqMessage(
+                        role = msg.role,
+                        content = msg.content
+                    )
+                }
+
+                Log.d("AIViewModel", "🔄 Enviando ${conversationHistory.size} mensajes de contexto a la IA")
+
+                // Llamar a la API de Groq con contexto completo
+                val aiResponse = GroqClient.sendMessageWithContext(conversationHistory)
 
                 // Agregar respuesta de la IA
                 val aiChatMessage = ChatMessage(

@@ -1,14 +1,18 @@
 package com.example.medicai.notifications
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.example.medicai.data.local.UserPreferencesManager
 
 /**
  * Receiver para manejar notificaciones programadas
- * Verifica preferencias del usuario antes de mostrar notificaciones
+ * Verifica AMBOS: permiso del sistema Y preferencias del usuario antes de mostrar notificaciones
  */
 class NotificationReceiver : BroadcastReceiver() {
 
@@ -34,13 +38,28 @@ class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("NotificationReceiver", "📬 Notificación recibida: ${intent.action}")
 
-        // ✅ VERIFICAR SI LAS NOTIFICACIONES ESTÁN HABILITADAS
+        // ✅ PASO 1: VERIFICAR PERMISO DEL SISTEMA (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            
+            if (!hasPermission) {
+                Log.d("NotificationReceiver", "🔕 Permiso de notificaciones del SISTEMA denegado - no se muestra")
+                return
+            }
+        }
+
+        // ✅ PASO 2: VERIFICAR SI LAS NOTIFICACIONES ESTÁN HABILITADAS EN LA APP
         val notificationsEnabled = UserPreferencesManager.areNotificationsEnabled(context)
         
         if (!notificationsEnabled) {
-            Log.d("NotificationReceiver", "🔕 Notificaciones deshabilitadas por el usuario - no se muestra")
+            Log.d("NotificationReceiver", "🔕 Notificaciones deshabilitadas por el USUARIO en la app - no se muestra")
             return
         }
+
+        Log.d("NotificationReceiver", "✅ Ambos checks pasados - mostrando notificación")
 
         when (intent.action) {
             ACTION_MEDICINE_REMINDER -> {

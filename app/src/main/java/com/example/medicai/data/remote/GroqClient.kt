@@ -54,21 +54,25 @@ object GroqClient {
     }
 
     /**
-     * Enviar mensaje a Groq y obtener respuesta
+     * Enviar mensaje a Groq y obtener respuesta con contexto conversacional completo
+     * @param conversationHistory Lista completa de mensajes de la conversación (user y assistant)
+     * @param systemPrompt Prompt del sistema para definir comportamiento de la IA
      */
-    suspend fun sendMessage(
-        userMessage: String,
+    suspend fun sendMessageWithContext(
+        conversationHistory: List<GroqMessage>,
         systemPrompt: String = MEDICAL_SYSTEM_PROMPT
     ): String {
         return try {
-            Log.d("GroqClient", "📤 Enviando mensaje a Groq...")
+            Log.d("GroqClient", "📤 Enviando conversación a Groq (${conversationHistory.size} mensajes)...")
+
+            // Construir lista de mensajes: sistema + historial completo
+            val allMessages = mutableListOf<GroqMessage>()
+            allMessages.add(GroqMessage(role = "system", content = systemPrompt))
+            allMessages.addAll(conversationHistory)
 
             val request = GroqChatRequest(
                 model = "llama-3.3-70b-versatile", // Modelo más rápido y eficiente
-                messages = listOf(
-                    GroqMessage(role = "system", content = systemPrompt),
-                    GroqMessage(role = "user", content = userMessage)
-                ),
+                messages = allMessages,
                 temperature = 0.7,
                 max_tokens = 1024,
                 top_p = 1.0,
@@ -91,6 +95,21 @@ object GroqClient {
             Log.e("GroqClient", "❌ Error al llamar a Groq: ${e.message}", e)
             throw Exception("Error de conexión con el asistente IA: ${e.message}")
         }
+    }
+
+    /**
+     * Enviar mensaje simple sin contexto (para compatibilidad)
+     */
+    suspend fun sendMessage(
+        userMessage: String,
+        systemPrompt: String = MEDICAL_SYSTEM_PROMPT
+    ): String {
+        return sendMessageWithContext(
+            conversationHistory = listOf(
+                GroqMessage(role = "user", content = userMessage)
+            ),
+            systemPrompt = systemPrompt
+        )
     }
 
     /**

@@ -43,6 +43,7 @@ import com.example.medicai.viewmodel.MedicineViewModel
 import com.example.medicai.viewmodel.AppointmentViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.delay
 
 /**
  * Pantalla de Inicio Moderna - Dashboard con UI mejorada
@@ -69,8 +70,24 @@ fun HomeScreen(
         SimpleDateFormat("EEEE, dd 'de' MMMM", Locale("es", "ES")).format(Date())
     }
 
-    val currentTime = remember {
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    var currentTime by remember {
+        mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()))
+    }
+
+    // Actualizar la hora en tiempo real sincronizada con el cambio de minuto
+    LaunchedEffect(Unit) {
+        while (true) {
+            // Calcular milisegundos hasta el próximo minuto
+            val now = System.currentTimeMillis()
+            val millisInMinute = 60_000L
+            val millisUntilNextMinute = millisInMinute - (now % millisInMinute)
+            
+            // Esperar hasta el próximo minuto
+            delay(millisUntilNextMinute)
+            
+            // Actualizar la hora
+            currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        }
     }
 
     // Cargar datos al iniciar
