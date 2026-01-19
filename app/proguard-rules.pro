@@ -25,6 +25,14 @@
 -keepclassmembers class io.ktor.** { *; }
 
 # ============================================
+# SLF4J (Logging)
+# ============================================
+-dontwarn org.slf4j.**
+-keep class org.slf4j.** { *; }
+-dontwarn org.slf4j.impl.**
+-keep class org.slf4j.impl.** { *; }
+
+# ============================================
 # Kotlinx Serialization
 # ============================================
 -keepattributes *Annotation*, InnerClasses
