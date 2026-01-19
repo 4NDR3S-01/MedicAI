@@ -2,6 +2,9 @@ package com.example.medicai.data.repository
 
 import android.util.Log
 import com.example.medicai.MedicAIApplication
+import com.example.medicai.data.local.AppDatabase
+import com.example.medicai.data.local.entity.toEntity
+import com.example.medicai.data.local.entity.toUserProfile
 import com.example.medicai.data.models.RegistrationData
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.models.UpdateProfileRequest
@@ -17,12 +20,15 @@ import java.io.IOException
 
 /**
  * Repository para manejar todas las operaciones de autenticación con Supabase
+ * ✅ Incluye Room para caché local de perfil de usuario
  * ✅ Incluye detección de conexión a internet
  */
 class AuthRepository {
 
     private val client = SupabaseClient.client
     private val auth = client.auth
+    private val database = AppDatabase.getInstance(MedicAIApplication.getInstance())
+    private val userProfileDao = database.userProfileDao()
 
     /**
      * Registrar nuevo usuario
@@ -77,9 +83,17 @@ class AuthRepository {
 
             if (createdProfile != null) {
                 Log.d("AuthRepository", "✅ Perfil verificado: ${createdProfile.full_name}, ${createdProfile.email}, ${createdProfile.phone}")
+                
+                // Guardar en caché local
+                userProfileDao.insertUserProfile(createdProfile.toEntity(isSynced = true))
+                
                 return Result.Success(createdProfile)
             } else {
                 Log.w("AuthRepository", "⚠️ Perfil creado pero no encontrado en verificación")
+                
+                // Guardar en caché local
+                userProfileDao.insertUserProfile(newProfile.toEntity(isSynced = true))
+                
                 return Result.Success(newProfile)
             }
 
@@ -147,6 +161,10 @@ class AuthRepository {
                 ?: throw Exception("Perfil no encontrado para el usuario")
 
             Log.d("AuthRepository", "Inicio de sesión exitoso para: $email")
+            
+            // Guardar perfil en caché local
+            userProfileDao.insertUserProfile(profile.toEntity(isSynced = true))
+            
             Result.Success(profile)
 
         } catch (e: IOException) {

@@ -5,7 +5,7 @@ import java.util.*
 
 /**
  * Utilidades y constantes compartidas para validación de formularios
- * ✅ Validaciones mejoradas para producción
+ * Validaciones
  */
 object ValidationUtils {
 
@@ -33,6 +33,16 @@ object ValidationUtils {
     const val MAX_PHONE_DIGITS = 15
 
     /**
+     * Longitud mínima de nombre completo (caracteres)
+     */
+    const val MIN_NAME_LENGTH = 3
+
+    /**
+     * Longitud máxima de nombre completo (caracteres)
+     */
+    const val MAX_NAME_LENGTH = 100
+
+    /**
      * Valida si un email tiene formato correcto
      * ✅ Regex mejorado que valida dominio real
      */
@@ -46,6 +56,18 @@ object ValidationUtils {
      */
     fun isValidPassword(password: String): Boolean {
         return password.length >= MIN_PASSWORD_LENGTH
+    }
+
+    /**
+     * Valida si un nombre completo cumple los requisitos
+     * Debe tener entre 3 y 100 caracteres, y contener al menos dos palabras
+     */
+    fun isValidFullName(name: String): Boolean {
+        val trimmed = name.trim()
+        val words = trimmed.split(Regex("\\s+")).filter { it.isNotBlank() }
+        return trimmed.length in MIN_NAME_LENGTH..MAX_NAME_LENGTH && 
+               words.size >= 2 &&
+               words.all { it[0].isLetter() }
     }
 
     /**

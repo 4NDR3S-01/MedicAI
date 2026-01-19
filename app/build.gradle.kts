@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "1.9.20"
+    id("com.google.devtools.ksp") version "2.0.21-1.0.25"
 }
 
 // Leer local.properties
@@ -119,6 +120,11 @@ dependencies {
     
     // Security Crypto para EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Room Database para persistencia local
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
 
     // WorkManager para tareas en background (reprogramar alarmas después de reinicio)
     implementation("androidx.work:work-runtime-ktx:2.9.0")

@@ -2,52 +2,101 @@ package com.example.medicai.data.repository
 
 import android.util.Log
 import com.example.medicai.MedicAIApplication
+import com.example.medicai.data.local.AppDatabase
+import com.example.medicai.data.local.entity.toAppointment
+import com.example.medicai.data.local.entity.toEntity
 import com.example.medicai.data.models.Appointment
 import com.example.medicai.data.models.AppointmentRequest
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.remote.SupabaseClient
 import com.example.medicai.utils.NetworkMonitor
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.io.IOException
 
 /**
  * Repositorio para operaciones CRUD de Citas Médicas
- * ✅ Incluye detección de conexión a internet
+ * ✅ Usa Room como caché local y Supabase como backend remoto
+ * ✅ Estrategia offline-first: lee de Room, sincroniza con Supabase cuando hay conexión
  */
 class AppointmentRepository {
 
     private val client = SupabaseClient.client
+    private val database = AppDatabase.getInstance(MedicAIApplication.getInstance())
+    private val appointmentDao = database.appointmentDao()
+    
+    /**
+     * Obtener todas las citas del usuario como Flow (reactivo)
+     */
+    fun getAppointmentsFlow(userId: String): Flow<List<Appointment>> {
+        // Sincronizar en background
+        syncAppointmentsFromServer(userId)
+        
+        return appointmentDao.getAppointmentsFlow(userId).map { entities ->
+            entities.map { it.toAppointment() }
+        }
+    }
 
     /**
+     * Sincronizar citas desde el servidor (función auxiliar)
+     */
+    private fun syncAppointmentsFromServer(userId: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val context = MedicAIApplication.getInstance()
+                if (NetworkMonitor.isNetworkAvailable(context)) {
+                    val remoteAppointments = client.from("appointments")
+                        .select()
+                        .decodeList<Appointment>()
+                        .filter { it.user_id == userId }
+                    
+                    appointmentDao.insertAppointments(remoteAppointments.map { it.toEntity(isSynced = true) })
+                    Log.d("AppointmentRepository", "✅ Sincronización de citas en background completada")
+                }
+            } catch (e: Exception) {
+                Log.w("AppointmentRepository", "⚠️ Error en sincronización background de citas", e)
+            }
+        }
+    }
+    
+    /**
      * Obtener todas las citas del usuario
+     * Lee primero de caché local, luego sincroniza con servidor si hay conexión
      */
     suspend fun getAppointments(userId: String): Result<List<Appointment>> {
         return try {
-            // Verificar conexión a internet
             val context = MedicAIApplication.getInstance()
-            if (!NetworkMonitor.isNetworkAvailable(context)) {
-                return Result.Error(
-                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
-                    exception = IOException("No hay conexión a internet")
-                )
+            
+            // 1. Leer de caché local primero (offline-first)
+            val cachedAppointments = appointmentDao.getAppointments(userId).map { it.toAppointment() }
+            
+            // 2. Si hay conexión, sincronizar con servidor
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                try {
+                    Log.d("AppointmentRepository", "Sincronizando citas desde servidor...")
+                    
+                    val remoteAppointments = client.from("appointments")
+                        .select()
+                        .decodeList<Appointment>()
+                        .filter { it.user_id == userId }
+                    
+                    // Actualizar caché local
+                    appointmentDao.insertAppointments(remoteAppointments.map { it.toEntity(isSynced = true) })
+                    
+                    Log.d("AppointmentRepository", "✅ ${remoteAppointments.size} citas sincronizadas")
+                    Result.Success(remoteAppointments.sortedBy { it.date })
+                } catch (e: Exception) {
+                    Log.w("AppointmentRepository", "⚠️ Error sincronizando, usando caché local", e)
+                    Result.Success(cachedAppointments)
+                }
+            } else {
+                Log.d("AppointmentRepository", "📴 Sin conexión, usando ${cachedAppointments.size} citas en caché")
+                Result.Success(cachedAppointments)
             }
-
-            Log.d("AppointmentRepository", "Obteniendo citas para user: $userId")
-
-            val appointments = client.from("appointments")
-                .select()
-                .decodeList<Appointment>()
-                .filter { it.user_id == userId }
-                .sortedBy { it.date }
-
-            Log.d("AppointmentRepository", "✅ ${appointments.size} citas obtenidas")
-            Result.Success(appointments)
-        } catch (e: IOException) {
-            Log.e("AppointmentRepository", "❌ Error de conexión: ${e.message}", e)
-            Result.Error(
-                message = "Error de conexión. Por favor verifica tu internet.",
-                exception = e
-            )
         } catch (e: Exception) {
             Log.e("AppointmentRepository", "❌ Error obteniendo citas: ${e.message}", e)
             Result.Error(
@@ -59,22 +108,18 @@ class AppointmentRepository {
 
     /**
      * Obtener citas próximas (scheduled)
+     * Lee desde caché local
      */
     suspend fun getUpcomingAppointments(userId: String): Result<List<Appointment>> {
         return try {
             val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
 
-            val appointments = client.from("appointments")
-                .select()
-                .decodeList<Appointment>()
-                .filter {
-                    it.user_id == userId &&
-                    it.status == "scheduled" &&
-                    it.date >= today
-                }
+            val appointments = appointmentDao.getPendingAppointments(userId)
+                .map { it.toAppointment() }
+                .filter { it.date >= today }
                 .sortedBy { it.date }
 
-            Log.d("AppointmentRepository", "✅ ${appointments.size} citas próximas")
+            Log.d("AppointmentRepository", "✅ ${appointments.size} citas próximas desde caché")
             Result.Success(appointments)
         } catch (e: Exception) {
             Log.e("AppointmentRepository", "Error obteniendo citas próximas: ${e.message}", e)
@@ -87,34 +132,49 @@ class AppointmentRepository {
 
     /**
      * Agregar nueva cita
+     * Guarda primero en caché local, luego sincroniza con servidor
      */
     suspend fun addAppointment(appointment: AppointmentRequest): Result<Appointment> {
         return try {
-            // Verificar conexión a internet
             val context = MedicAIApplication.getInstance()
-            if (!NetworkMonitor.isNetworkAvailable(context)) {
-                return Result.Error(
-                    message = "Sin conexión a internet. Por favor verifica tu conexión.",
-                    exception = IOException("No hay conexión a internet")
+            
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                // Con conexión: guardar en servidor y en caché
+                Log.d("AppointmentRepository", "Agregando cita con: ${appointment.doctor_name}")
+                
+                val newAppointment = client.from("appointments")
+                    .insert(appointment) {
+                        select()
+                    }
+                    .decodeSingle<Appointment>()
+                
+                // Guardar en caché local
+                appointmentDao.insertAppointment(newAppointment.toEntity(isSynced = true))
+                
+                Log.d("AppointmentRepository", "✅ Cita agregada y sincronizada: ${newAppointment.id}")
+                Result.Success(newAppointment)
+            } else {
+                // Sin conexión: guardar solo en caché local
+                Log.d("AppointmentRepository", "📴 Sin conexión, guardando en caché local")
+                
+                val tempId = java.util.UUID.randomUUID().toString()
+                val localAppointment = Appointment(
+                    id = tempId,
+                    user_id = appointment.user_id,
+                    doctor_name = appointment.doctor_name,
+                    specialty = appointment.specialty,
+                    date = appointment.date,
+                    time = appointment.time,
+                    location = appointment.location,
+                    notes = appointment.notes,
+                    status = appointment.status,
+                    created_at = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
                 )
+                
+                appointmentDao.insertAppointment(localAppointment.toEntity(isSynced = false))
+                
+                Result.Success(localAppointment)
             }
-
-            Log.d("AppointmentRepository", "Agregando cita con: ${appointment.doctor_name}")
-
-            val newAppointment = client.from("appointments")
-                .insert(appointment) {
-                    select()
-                }
-                .decodeSingle<Appointment>()
-
-            Log.d("AppointmentRepository", "✅ Cita agregada: ${newAppointment.id}")
-            Result.Success(newAppointment)
-        } catch (e: IOException) {
-            Log.e("AppointmentRepository", "❌ Error de conexión: ${e.message}", e)
-            Result.Error(
-                message = "Error de conexión. Por favor verifica tu internet.",
-                exception = e
-            )
         } catch (e: Exception) {
             Log.e("AppointmentRepository", "❌ Error agregando cita: ${e.message}", e)
             Result.Error(
@@ -126,22 +186,52 @@ class AppointmentRepository {
 
     /**
      * Actualizar cita existente
+     * Actualiza en caché local y servidor
      */
     suspend fun updateAppointment(id: String, appointment: AppointmentRequest): Result<Appointment> {
         return try {
             Log.d("AppointmentRepository", "Actualizando cita: $id")
-
-            val updated = client.from("appointments")
-                .update(appointment) {
-                    select()
-                    filter {
-                        eq("id", id)
+            
+            val context = MedicAIApplication.getInstance()
+            
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                // Con conexión: actualizar en servidor
+                val updated = client.from("appointments")
+                    .update(appointment) {
+                        select()
+                        filter {
+                            eq("id", id)
+                        }
                     }
+                    .decodeSingle<Appointment>()
+                
+                // Actualizar en caché local
+                appointmentDao.insertAppointment(updated.toEntity(isSynced = true))
+                
+                Log.d("AppointmentRepository", "✅ Cita actualizada y sincronizada: $id")
+                Result.Success(updated)
+            } else {
+                // Sin conexión: actualizar solo en caché local
+                val cachedAppointment = appointmentDao.getAppointmentById(id)
+                if (cachedAppointment != null) {
+                    val updatedEntity = cachedAppointment.copy(
+                        doctor_name = appointment.doctor_name,
+                        specialty = appointment.specialty,
+                        date = appointment.date,
+                        time = appointment.time,
+                        location = appointment.location,
+                        notes = appointment.notes,
+                        status = appointment.status,
+                        is_synced = false
+                    )
+                    appointmentDao.insertAppointment(updatedEntity)
+                    
+                    Log.d("AppointmentRepository", "📴 Cita actualizada localmente: $id")
+                    Result.Success(updatedEntity.toAppointment())
+                } else {
+                    Result.Error(message = "Cita no encontrada en caché")
                 }
-                .decodeSingle<Appointment>()
-
-            Log.d("AppointmentRepository", "✅ Cita actualizada: $id")
-            Result.Success(updated)
+            }
         } catch (e: Exception) {
             Log.e("AppointmentRepository", "❌ Error actualizando cita: ${e.message}", e)
             Result.Error(
@@ -157,13 +247,30 @@ class AppointmentRepository {
     suspend fun cancelAppointment(id: String): Result<Unit> {
         return try {
             Log.d("AppointmentRepository", "Cancelando cita: $id")
-
-            client.from("appointments")
-                .update(mapOf("status" to "cancelled")) {
-                    filter {
-                        eq("id", id)
+            
+            val context = MedicAIApplication.getInstance()
+            
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                // Con conexión: cancelar en servidor
+                client.from("appointments")
+                    .update(mapOf("status" to "cancelled")) {
+                        filter {
+                            eq("id", id)
+                        }
                     }
+                
+                // Actualizar en caché local
+                val cachedAppointment = appointmentDao.getAppointmentById(id)
+                if (cachedAppointment != null) {
+                    appointmentDao.insertAppointment(cachedAppointment.copy(status = "cancelled", is_synced = true))
                 }
+            } else {
+                // Sin conexión: cancelar solo en caché local
+                val cachedAppointment = appointmentDao.getAppointmentById(id)
+                if (cachedAppointment != null) {
+                    appointmentDao.insertAppointment(cachedAppointment.copy(status = "cancelled", is_synced = false))
+                }
+            }
 
             Log.d("AppointmentRepository", "✅ Cita cancelada: $id")
             Result.Success(Unit)
@@ -182,13 +289,30 @@ class AppointmentRepository {
     suspend fun completeAppointment(id: String): Result<Unit> {
         return try {
             Log.d("AppointmentRepository", "Completando cita: $id")
-
-            client.from("appointments")
-                .update(mapOf("status" to "completed")) {
-                    filter {
-                        eq("id", id)
+            
+            val context = MedicAIApplication.getInstance()
+            
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                // Con conexión: completar en servidor
+                client.from("appointments")
+                    .update(mapOf("status" to "completed")) {
+                        filter {
+                            eq("id", id)
+                        }
                     }
+                
+                // Actualizar en caché local
+                val cachedAppointment = appointmentDao.getAppointmentById(id)
+                if (cachedAppointment != null) {
+                    appointmentDao.insertAppointment(cachedAppointment.copy(status = "completed", is_synced = true))
                 }
+            } else {
+                // Sin conexión: completar solo en caché local
+                val cachedAppointment = appointmentDao.getAppointmentById(id)
+                if (cachedAppointment != null) {
+                    appointmentDao.insertAppointment(cachedAppointment.copy(status = "completed", is_synced = false))
+                }
+            }
 
             Log.d("AppointmentRepository", "✅ Cita completada: $id")
             Result.Success(Unit)
@@ -207,13 +331,21 @@ class AppointmentRepository {
     suspend fun deleteAppointment(id: String): Result<Unit> {
         return try {
             Log.d("AppointmentRepository", "Eliminando cita: $id")
-
-            client.from("appointments")
-                .delete {
-                    filter {
-                        eq("id", id)
+            
+            val context = MedicAIApplication.getInstance()
+            
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                // Con conexión: eliminar del servidor
+                client.from("appointments")
+                    .delete {
+                        filter {
+                            eq("id", id)
+                        }
                     }
-                }
+            }
+            
+            // Eliminar de caché local siempre
+            appointmentDao.deleteAppointmentById(id)
 
             Log.d("AppointmentRepository", "✅ Cita eliminada: $id")
             Result.Success(Unit)

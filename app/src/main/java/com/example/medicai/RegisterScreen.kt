@@ -41,6 +41,7 @@ import android.widget.Toast
 import com.example.medicai.data.models.RegistrationData
 import com.example.medicai.data.models.Result
 import com.example.medicai.viewmodel.AuthViewModel
+import com.example.medicai.utils.ValidationUtils
 
 // Regex para validación de email
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")
@@ -110,13 +111,13 @@ fun RegisterScreen(
 
     val emailTrim = email.trim()
 
-    val nameError = nameTouched && fullName.isBlank()
+    val nameError = nameTouched && !ValidationUtils.isValidFullName(fullName)
     val emailError = emailTouched && !isValidEmail(emailTrim)
     val passError = passTouched && password.length < 8
     val confirmError = confirmTouched && confirm != password
     val phoneError = phoneTouched && phone.isNotBlank() && !isValidPhone(phone)
 
-    val allValid = fullName.isNotBlank() &&
+    val allValid = ValidationUtils.isValidFullName(fullName) &&
             isValidEmail(emailTrim) &&
             password.length >= 8 &&
             confirm == password &&
@@ -240,13 +241,23 @@ fun RegisterScreen(
                         // Nombre
                         OutlinedTextField(
                             value = fullName,
-                            onValueChange = { fullName = it; nameTouched = true },
+                            onValueChange = { 
+                                if (it.length <= ValidationUtils.MAX_NAME_LENGTH) {
+                                    fullName = it
+                                    nameTouched = true
+                                }
+                            },
                             label = { Text("Nombre completo") },
                             leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "Nombre completo", tint = MaterialTheme.colorScheme.primary) },
                             singleLine = true,
                             isError = nameError,
                             supportingText = {
-                                if (nameError) Text("Ingresa tu nombre completo")
+                                if (nameError) {
+                                    Text("Ingresa nombre y apellido (3-${ValidationUtils.MAX_NAME_LENGTH} caracteres)")
+                                } else {
+                                    Text("${fullName.length}/${ValidationUtils.MAX_NAME_LENGTH}", 
+                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),

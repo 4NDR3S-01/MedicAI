@@ -52,6 +52,7 @@ import com.example.medicai.ui.theme.GradientStart
 import com.example.medicai.ui.theme.GradientEnd
 import com.example.medicai.ui.theme.OnGradientLight
 import com.example.medicai.ui.theme.UpdateSystemBars
+import com.example.medicai.utils.ValidationUtils
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
@@ -649,11 +650,22 @@ private fun EditProfileDialog(
             ) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = { 
+                        if (it.length <= ValidationUtils.MAX_NAME_LENGTH) {
+                            name = it
+                        }
+                    },
                     label = { Text("Nombre completo") },
                     leadingIcon = {
                         Icon(Icons.Filled.Person, contentDescription = "Nombre completo")
                     },
+                    supportingText = {
+                        Text(
+                            "${name.length}/${ValidationUtils.MAX_NAME_LENGTH}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    isError = name.isNotBlank() && !ValidationUtils.isValidFullName(name),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -673,6 +685,7 @@ private fun EditProfileDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(name, phone) },
+                enabled = ValidationUtils.isValidFullName(name),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Guardar")
