@@ -40,7 +40,7 @@ object ValidationUtils {
     /**
      * Longitud máxima de nombre completo (caracteres)
      */
-    const val MAX_NAME_LENGTH = 100
+    const val MAX_NAME_LENGTH = 70
 
     /**
      * Valida si un email tiene formato correcto
@@ -60,14 +60,31 @@ object ValidationUtils {
 
     /**
      * Valida si un nombre completo cumple los requisitos
-     * Debe tener entre 3 y 100 caracteres, y contener al menos dos palabras
+     * Solo acepta letras y espacios
      */
     fun isValidFullName(name: String): Boolean {
         val trimmed = name.trim()
-        val words = trimmed.split(Regex("\\s+")).filter { it.isNotBlank() }
-        return trimmed.length in MIN_NAME_LENGTH..MAX_NAME_LENGTH && 
-               words.size >= 2 &&
-               words.all { it[0].isLetter() }
+        // Verificar longitud
+        if (trimmed.length !in MIN_NAME_LENGTH..MAX_NAME_LENGTH) {
+            return false
+        }
+        // Solo permitir letras y espacios
+        return trimmed.all { it.isLetter() || it.isWhitespace() } && trimmed.any { it.isLetter() }
+    }
+
+    /**
+     * Obtiene mensaje de error descriptivo para nombre
+     */
+    fun getNameErrorMessage(name: String): String? {
+        val trimmed = name.trim()
+        return when {
+            trimmed.isEmpty() -> "El nombre no puede estar vacío"
+            trimmed.length < MIN_NAME_LENGTH -> "El nombre es demasiado corto (mínimo $MIN_NAME_LENGTH caracteres)"
+            trimmed.length > MAX_NAME_LENGTH -> "El nombre es demasiado largo (máximo $MAX_NAME_LENGTH caracteres)"
+            !trimmed.all { it.isLetter() || it.isWhitespace() } -> "El nombre solo debe contener letras"
+            !trimmed.any { it.isLetter() } -> "El nombre debe contener al menos una letra"
+            else -> null
+        }
     }
 
     /**

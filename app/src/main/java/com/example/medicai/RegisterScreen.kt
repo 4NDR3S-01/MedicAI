@@ -31,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -248,18 +249,42 @@ fun RegisterScreen(
                                 }
                             },
                             label = { Text("Nombre completo") },
-                            leadingIcon = { Icon(Icons.Filled.Person, contentDescription = "Nombre completo", tint = MaterialTheme.colorScheme.primary) },
+                            placeholder = { Text("Ej: Juan Pérez o María") },
+                            leadingIcon = { 
+                                Icon(
+                                    Icons.Filled.Person, 
+                                    contentDescription = "Nombre completo", 
+                                    tint = MaterialTheme.colorScheme.primary
+                                ) 
+                            },
                             singleLine = true,
                             isError = nameError,
                             supportingText = {
-                                if (nameError) {
-                                    Text("Ingresa nombre y apellido (3-${ValidationUtils.MAX_NAME_LENGTH} caracteres)")
-                                } else {
-                                    Text("${fullName.length}/${ValidationUtils.MAX_NAME_LENGTH}", 
-                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                when {
+                                    nameError -> {
+                                        ValidationUtils.getNameErrorMessage(fullName)?.let { 
+                                            Text(it, color = MaterialTheme.colorScheme.error) 
+                                        }
+                                    }
+                                    fullName.length > ValidationUtils.MAX_NAME_LENGTH * 0.8 -> {
+                                        Text(
+                                            "${fullName.length}/${ValidationUtils.MAX_NAME_LENGTH}", 
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                    else -> {
+                                        Text(
+                                            "${fullName.length}/${ValidationUtils.MAX_NAME_LENGTH}", 
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words,
+                                imeAction = ImeAction.Next
+                            ),
                             keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
