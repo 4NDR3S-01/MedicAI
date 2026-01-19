@@ -44,6 +44,7 @@ import com.example.medicai.viewmodel.MedicineViewModel
 import com.example.medicai.ui.theme.GradientStart
 import com.example.medicai.ui.theme.OnGradientLight
 import com.example.medicai.ui.theme.UpdateSystemBars
+import com.example.medicai.utils.ValidationUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -926,6 +927,9 @@ private fun ModernAddMedicineDialog(
     var selectedMinute by rememberSaveable { mutableStateOf(0) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
     var notes by rememberSaveable { mutableStateOf("") }
+    var nameTouched by rememberSaveable { mutableStateOf(false) }
+    var dosageTouched by rememberSaveable { mutableStateOf(false) }
+    var notesTouched by rememberSaveable { mutableStateOf(false) }
 
     // Crear startTime desde hora y minuto seleccionados
     val startTime = remember(selectedHour, selectedMinute) {
@@ -937,7 +941,15 @@ private fun ModernAddMedicineDialog(
         calculateSchedule(frequencyHours.toIntOrNull() ?: 8, startTime)
     }
 
-    val isValid = name.isNotBlank() && dosage.isNotBlank() && frequencyHours.isNotBlank()
+    // Validaciones
+    val nameError = nameTouched && ValidationUtils.getMedicineNameErrorMessage(name) != null
+    val dosageError = dosageTouched && ValidationUtils.getDosageErrorMessage(dosage) != null
+    val notesError = notesTouched && !ValidationUtils.isValidNotes(notes)
+    
+    val isValid = ValidationUtils.isValidMedicineName(name) && 
+                  ValidationUtils.isValidDosage(dosage) && 
+                  frequencyHours.isNotBlank() &&
+                  ValidationUtils.isValidNotes(notes)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -993,7 +1005,12 @@ private fun ModernAddMedicineDialog(
                 item {
                     OutlinedTextField(
                         value = dosage,
-                        onValueChange = { dosage = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_DOSAGE_LENGTH) {
+                                dosage = it
+                            }
+                            dosageTouched = true
+                        },
                         label = { 
                             Text(
                                 "Dosis *",
@@ -1011,6 +1028,27 @@ private fun ModernAddMedicineDialog(
                         leadingIcon = {
                             Icon(Icons.Filled.Colorize, contentDescription = "Dosis")
                         },
+                        supportingText = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                if (dosageError) {
+                                    Text(
+                                        ValidationUtils.getDosageErrorMessage(dosage) ?: "",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.width(1.dp))
+                                }
+                                Text(
+                                    "${dosage.length}/${ValidationUtils.MAX_DOSAGE_LENGTH}",
+                                    color = if (dosageError) MaterialTheme.colorScheme.error 
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        isError = dosageError,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -1149,11 +1187,37 @@ private fun ModernAddMedicineDialog(
                 item {
                     OutlinedTextField(
                         value = notes,
-                        onValueChange = { notes = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_NOTES_LENGTH) {
+                                notes = it
+                            }
+                            notesTouched = true
+                        },
                         label = { Text("Notas (opcional)") },
                         leadingIcon = {
                             Icon(Icons.Filled.Notes, contentDescription = "Notas")
                         },
+                        supportingText = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                if (notesError) {
+                                    Text(
+                                        "Notas demasiado largas",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.width(1.dp))
+                                }
+                                Text(
+                                    "${notes.length}/${ValidationUtils.MAX_NOTES_LENGTH}",
+                                    color = if (notesError) MaterialTheme.colorScheme.error 
+                                           else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        isError = notesError,
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)

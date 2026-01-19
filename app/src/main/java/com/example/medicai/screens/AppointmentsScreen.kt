@@ -36,6 +36,7 @@ import com.example.medicai.ui.theme.GradientStartSecondary
 import com.example.medicai.ui.theme.GradientEndSecondary
 import com.example.medicai.ui.theme.OnGradientLight
 import com.example.medicai.ui.theme.UpdateSystemBars
+import com.example.medicai.utils.ValidationUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -943,6 +944,12 @@ private fun ModernAddAppointmentDialog(
     var location by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var showLocationPicker by rememberSaveable { mutableStateOf(false) }
+    
+    // Estados de validación
+    var doctorNameTouched by rememberSaveable { mutableStateOf(false) }
+    var specialtyTouched by rememberSaveable { mutableStateOf(false) }
+    var locationTouched by rememberSaveable { mutableStateOf(false) }
+    var notesTouched by rememberSaveable { mutableStateOf(false) }
 
     val dateFormatted = remember(selectedDateMillis) {
         selectedDateMillis?.let { millis ->
@@ -961,8 +968,11 @@ private fun ModernAddAppointmentDialog(
         "${selectedHour.toString().padStart(2, '0')}:${selectedMinute.toString().padStart(2, '0')}"
     }
 
-    val isValid = doctorName.isNotBlank() && specialty.isNotBlank() &&
-                  selectedDateMillis != null && location.isNotBlank()
+    val isValid = ValidationUtils.isValidDoctorName(doctorName) && 
+                  ValidationUtils.isValidSpecialty(specialty) &&
+                  selectedDateMillis != null && 
+                  ValidationUtils.isValidLocation(location) &&
+                  ValidationUtils.isValidAppointmentNotes(notes)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -991,11 +1001,36 @@ private fun ModernAddAppointmentDialog(
                 item {
                     OutlinedTextField(
                         value = doctorName,
-                        onValueChange = { doctorName = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_DOCTOR_NAME_LENGTH) {
+                                doctorName = it
+                                doctorNameTouched = true
+                            }
+                        },
                         label = { Text("Nombre del médico *") },
                         leadingIcon = {
                             Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
                         },
+                        supportingText = {
+                            val errorMessage = if (doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName)) {
+                                ValidationUtils.getDoctorNameErrorMessage(doctorName)
+                            } else null
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "${doctorName.length}/${ValidationUtils.MAX_DOCTOR_NAME_LENGTH}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        },
+                        isError = doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -1005,11 +1040,36 @@ private fun ModernAddAppointmentDialog(
                 item {
                     OutlinedTextField(
                         value = specialty,
-                        onValueChange = { specialty = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_SPECIALTY_LENGTH) {
+                                specialty = it
+                                specialtyTouched = true
+                            }
+                        },
                         label = { Text("Especialidad *") },
                         leadingIcon = {
                             Icon(Icons.Filled.MedicalServices, contentDescription = "Especialidad")
                         },
+                        supportingText = {
+                            val errorMessage = if (specialtyTouched && !ValidationUtils.isValidSpecialty(specialty)) {
+                                ValidationUtils.getSpecialtyErrorMessage(specialty)
+                            } else null
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "${specialty.length}/${ValidationUtils.MAX_SPECIALTY_LENGTH}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        },
+                        isError = specialtyTouched && !ValidationUtils.isValidSpecialty(specialty),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -1190,10 +1250,27 @@ private fun ModernAddAppointmentDialog(
                 item {
                     OutlinedTextField(
                         value = notes,
-                        onValueChange = { notes = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_NOTES_LENGTH) {
+                                notes = it
+                                notesTouched = true
+                            }
+                        },
                         label = { Text("Notas (opcional)") },
                         leadingIcon = {
                             Icon(Icons.Filled.Notes, contentDescription = "Notas")
+                        },
+                        supportingText = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "")
+                                Text(
+                                    text = "${notes.length}/${ValidationUtils.MAX_NOTES_LENGTH}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         },
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
@@ -1320,6 +1397,12 @@ private fun ModernEditAppointmentDialog(
     var specialty by rememberSaveable { mutableStateOf(appointment.specialty) }
     var location by rememberSaveable { mutableStateOf(appointment.location) }
     var notes by rememberSaveable { mutableStateOf(appointment.notes ?: "") }
+    
+    // Estados de validación
+    var doctorNameTouched by rememberSaveable { mutableStateOf(false) }
+    var specialtyTouched by rememberSaveable { mutableStateOf(false) }
+    var locationTouched by rememberSaveable { mutableStateOf(false) }
+    var notesTouched by rememberSaveable { mutableStateOf(false) }
 
     // Crear date desde milisegundos seleccionados (usando UTC para evitar desfase)
     val dateFormatted = remember(selectedDateMillis) {
@@ -1338,8 +1421,11 @@ private fun ModernEditAppointmentDialog(
         "${selectedHour.toString().padStart(2, '0')}:${selectedMinute.toString().padStart(2, '0')}"
     }
 
-    val isValid = doctorName.isNotBlank() && specialty.isNotBlank() &&
-                  selectedDateMillis != null && location.isNotBlank()
+    val isValid = ValidationUtils.isValidDoctorName(doctorName) && 
+                  ValidationUtils.isValidSpecialty(specialty) &&
+                  selectedDateMillis != null && 
+                  ValidationUtils.isValidLocation(location) &&
+                  ValidationUtils.isValidAppointmentNotes(notes)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1368,11 +1454,36 @@ private fun ModernEditAppointmentDialog(
                 item {
                     OutlinedTextField(
                         value = doctorName,
-                        onValueChange = { doctorName = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_DOCTOR_NAME_LENGTH) {
+                                doctorName = it
+                                doctorNameTouched = true
+                            }
+                        },
                         label = { Text("Nombre del médico *") },
                         leadingIcon = {
                             Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
                         },
+                        supportingText = {
+                            val errorMessage = if (doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName)) {
+                                ValidationUtils.getDoctorNameErrorMessage(doctorName)
+                            } else null
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "${doctorName.length}/${ValidationUtils.MAX_DOCTOR_NAME_LENGTH}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        },
+                        isError = doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -1382,11 +1493,36 @@ private fun ModernEditAppointmentDialog(
                 item {
                     OutlinedTextField(
                         value = specialty,
-                        onValueChange = { specialty = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_SPECIALTY_LENGTH) {
+                                specialty = it
+                                specialtyTouched = true
+                            }
+                        },
                         label = { Text("Especialidad *") },
                         leadingIcon = {
                             Icon(Icons.Filled.MedicalServices, contentDescription = "Especialidad")
                         },
+                        supportingText = {
+                            val errorMessage = if (specialtyTouched && !ValidationUtils.isValidSpecialty(specialty)) {
+                                ValidationUtils.getSpecialtyErrorMessage(specialty)
+                            } else null
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "${specialty.length}/${ValidationUtils.MAX_SPECIALTY_LENGTH}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        },
+                        isError = specialtyTouched && !ValidationUtils.isValidSpecialty(specialty),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -1567,10 +1703,27 @@ private fun ModernEditAppointmentDialog(
                 item {
                     OutlinedTextField(
                         value = notes,
-                        onValueChange = { notes = it },
+                        onValueChange = { 
+                            if (it.length <= ValidationUtils.MAX_NOTES_LENGTH) {
+                                notes = it
+                                notesTouched = true
+                            }
+                        },
                         label = { Text("Notas (opcional)") },
                         leadingIcon = {
                             Icon(Icons.Filled.Notes, contentDescription = "Notas")
+                        },
+                        supportingText = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "")
+                                Text(
+                                    text = "${notes.length}/${ValidationUtils.MAX_NOTES_LENGTH}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         },
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),

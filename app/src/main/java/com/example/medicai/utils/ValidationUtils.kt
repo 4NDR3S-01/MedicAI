@@ -43,6 +43,41 @@ object ValidationUtils {
     const val MAX_NAME_LENGTH = 70
 
     /**
+     * Longitud máxima para nombre de medicamento
+     */
+    const val MAX_MEDICINE_NAME_LENGTH = 100
+
+    /**
+     * Longitud máxima para dosificación
+     */
+    const val MAX_DOSAGE_LENGTH = 50
+
+    /**
+     * Longitud máxima para notas de medicamento
+     */
+    const val MAX_NOTES_LENGTH = 500
+
+    /**
+     * Longitud máxima para nombre de doctor
+     */
+    const val MAX_DOCTOR_NAME_LENGTH = 70
+
+    /**
+     * Longitud máxima para especialidad médica
+     */
+    const val MAX_SPECIALTY_LENGTH = 50
+
+    /**
+     * Longitud máxima para ubicación de cita
+     */
+    const val MAX_LOCATION_LENGTH = 200
+
+    /**
+     * Longitud máxima para notas de cita
+     */
+    const val MAX_APPOINTMENT_NOTES_LENGTH = 500
+
+    /**
      * Valida si un email tiene formato correcto
      * ✅ Regex mejorado que valida dominio real
      */
@@ -157,6 +192,126 @@ object ValidationUtils {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Valida si un nombre de medicamento cumple los requisitos
+     */
+    fun isValidMedicineName(name: String): Boolean {
+        val trimmed = name.trim()
+        return trimmed.isNotBlank() && trimmed.length <= MAX_MEDICINE_NAME_LENGTH
+    }
+
+    /**
+     * Obtiene mensaje de error para nombre de medicamento
+     */
+    fun getMedicineNameErrorMessage(name: String): String? {
+        val trimmed = name.trim()
+        return when {
+            trimmed.isEmpty() -> "El nombre del medicamento es requerido"
+            trimmed.length > MAX_MEDICINE_NAME_LENGTH -> "El nombre es demasiado largo (máximo $MAX_MEDICINE_NAME_LENGTH caracteres)"
+            else -> null
+        }
+    }
+
+    /**
+     * Valida si una dosificación cumple los requisitos
+     */
+    fun isValidDosage(dosage: String): Boolean {
+        val trimmed = dosage.trim()
+        return trimmed.isNotBlank() && trimmed.length <= MAX_DOSAGE_LENGTH
+    }
+
+    /**
+     * Obtiene mensaje de error para dosificación
+     */
+    fun getDosageErrorMessage(dosage: String): String? {
+        val trimmed = dosage.trim()
+        return when {
+            trimmed.isEmpty() -> "La dosificación es requerida"
+            trimmed.length > MAX_DOSAGE_LENGTH -> "La dosificación es demasiado larga (máximo $MAX_DOSAGE_LENGTH caracteres)"
+            else -> null
+        }
+    }
+
+    /**
+     * Valida si las notas cumplen los requisitos
+     */
+    fun isValidNotes(notes: String): Boolean {
+        return notes.trim().length <= MAX_NOTES_LENGTH
+    }
+
+    /**
+     * Valida si un nombre de doctor cumple los requisitos
+     * Solo acepta letras y espacios
+     */
+    fun isValidDoctorName(name: String): Boolean {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty() || trimmed.length > MAX_DOCTOR_NAME_LENGTH) {
+            return false
+        }
+        return trimmed.all { it.isLetter() || it.isWhitespace() } && trimmed.any { it.isLetter() }
+    }
+
+    /**
+     * Obtiene mensaje de error para nombre de doctor
+     */
+    fun getDoctorNameErrorMessage(name: String): String? {
+        val trimmed = name.trim()
+        return when {
+            trimmed.isEmpty() -> "El nombre del doctor es requerido"
+            trimmed.length > MAX_DOCTOR_NAME_LENGTH -> "El nombre es demasiado largo (máximo $MAX_DOCTOR_NAME_LENGTH caracteres)"
+            !trimmed.all { it.isLetter() || it.isWhitespace() } -> "El nombre solo debe contener letras"
+            !trimmed.any { it.isLetter() } -> "El nombre debe contener al menos una letra"
+            else -> null
+        }
+    }
+
+    /**
+     * Valida si una especialidad cumple los requisitos
+     */
+    fun isValidSpecialty(specialty: String): Boolean {
+        val trimmed = specialty.trim()
+        return trimmed.isNotBlank() && trimmed.length <= MAX_SPECIALTY_LENGTH
+    }
+
+    /**
+     * Obtiene mensaje de error para especialidad
+     */
+    fun getSpecialtyErrorMessage(specialty: String): String? {
+        val trimmed = specialty.trim()
+        return when {
+            trimmed.isEmpty() -> "La especialidad es requerida"
+            trimmed.length > MAX_SPECIALTY_LENGTH -> "La especialidad es demasiado larga (máximo $MAX_SPECIALTY_LENGTH caracteres)"
+            else -> null
+        }
+    }
+
+    /**
+     * Valida si una ubicación cumple los requisitos
+     */
+    fun isValidLocation(location: String): Boolean {
+        val trimmed = location.trim()
+        return trimmed.isNotBlank() && trimmed.length <= MAX_LOCATION_LENGTH
+    }
+
+    /**
+     * Obtiene mensaje de error para ubicación
+     */
+    fun getLocationErrorMessage(location: String): String? {
+        val trimmed = location.trim()
+        return when {
+            trimmed.isEmpty() -> "La ubicación es requerida"
+            trimmed.length > MAX_LOCATION_LENGTH -> "La ubicación es demasiado larga (máximo $MAX_LOCATION_LENGTH caracteres)"
+            else -> null
+        }
+    }
+
+    /**
+     * Valida si las notas de cita cumplen los requisitos
+     */
+    fun isValidAppointmentNotes(notes: String): Boolean {
+        return notes.trim().length <= MAX_APPOINTMENT_NOTES_LENGTH
     }
 }
 

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.example.medicai.utils.ValidationUtils
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.VisualTransformation
@@ -61,10 +62,10 @@ fun LoginScreen(
     var passwordTouched by rememberSaveable { mutableStateOf(false) }
 
     val emailTrim = email.trim()
-    val emailError = emailTouched && !EMAIL_REGEX.matches(emailTrim)
-    val passwordError = passwordTouched && password.length < 8
+    val emailError = emailTouched && !ValidationUtils.isValidEmail(emailTrim)
+    val passwordError = passwordTouched && !ValidationUtils.isValidPassword(password)
 
-    val isFormValid = EMAIL_REGEX.matches(emailTrim) && password.length >= 8
+    val isFormValid = ValidationUtils.isValidEmail(emailTrim) && ValidationUtils.isValidPassword(password)
 
     // Observar estado de login
     val loginState by viewModel.loginState.collectAsState()
@@ -184,7 +185,9 @@ fun LoginScreen(
                             singleLine = true,
                             isError = emailError,
                             supportingText = {
-                                if (emailError) Text("Correo inválido")
+                                if (emailError) {
+                                    Text("Ingresa un correo electrónico válido")
+                                }
                             },
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Email,
@@ -227,7 +230,9 @@ fun LoginScreen(
                             singleLine = true,
                             isError = passwordError,
                             supportingText = {
-                                if (passwordError) Text("Mínimo 8 caracteres")
+                                if (passwordError) {
+                                    Text("Mínimo ${ValidationUtils.MIN_PASSWORD_LENGTH} caracteres")
+                                }
                             },
                             visualTransformation = if (passwordVisible)
                                 VisualTransformation.None
