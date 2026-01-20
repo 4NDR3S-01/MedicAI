@@ -98,6 +98,34 @@ fun HomeScreen(
         }
     }
 
+    // Próxima toma más cercana (hoy o mañana)
+    val activeMedicines = medicines.filter { it.active }
+    val currentMinutes = remember(currentTime) {
+        val parts = currentTime.split(":")
+        val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        hour * 60 + minute
+    }
+    val nextDoseInfo = remember(activeMedicines, currentMinutes) {
+        if (activeMedicines.isEmpty()) return@remember null
+        val allTimes = activeMedicines.flatMap { medicine ->
+            medicine.times.map { timeStr ->
+                val parts = timeStr.split(":")
+                val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                val timeInMinutes = hour * 60 + minute
+                NextDoseInfo(medicine.name, timeStr, timeInMinutes)
+            }
+        }
+        val upcomingToday = allTimes.filter { it.timeInMinutes >= currentMinutes }
+        if (upcomingToday.isNotEmpty()) {
+            upcomingToday.minByOrNull { it.timeInMinutes }
+        } else {
+            val firstTomorrow = allTimes.minByOrNull { it.timeInMinutes }
+            firstTomorrow?.copy(isTomorrow = true)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -139,9 +167,40 @@ fun HomeScreen(
                 ) {
                     Column {
                         Spacer(modifier = Modifier.height(24.dp))
+                        
+                        // Calcular próxima toma más cercana de todos los medicamentos activos
+                        val activeMedicines = medicines.filter { it.active }
+                        val currentTime = remember {
+                            val cal = java.util.Calendar.getInstance()
+                            val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                            val minute = cal.get(java.util.Calendar.MINUTE)
+                            hour * 60 + minute
+                        }
+                        
+                        val nextMedicineInfo = remember(activeMedicines, currentTime) {
+                            activeMedicines.flatMap { medicine ->
+                                medicine.times.map { timeStr ->
+                                    val parts = timeStr.split(":")
+                                    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                                    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                                    val timeInMinutes = hour * 60 + minute
+                                    Triple(medicine.name, timeStr, timeInMinutes)
+                                }
+                            }
+                            .filter { (_, _, timeInMinutes) -> timeInMinutes >= currentTime }
+                            .minByOrNull { (_, _, timeInMinutes) -> timeInMinutes }
+                        }
+                        
                         SectionHeader(
                             title = "Próximas Tomas",
-                            subtitle = "${medicines.count { it.active }} medicamentos activos",
+                            subtitle = when {
+                                nextMedicineInfo != null -> {
+                                    val (medName, time, _) = nextMedicineInfo
+                                    "$time • ${medName.take(20)}"
+                                }
+                                activeMedicines.isNotEmpty() -> "Todas las tomas completadas hoy"
+                                else -> "No hay medicamentos activos"
+                            },
                             icon = Icons.Filled.Medication
                         )
                     }
@@ -229,30 +288,55 @@ fun HomeScreen(
         ModernStickyHeader(
             userName = currentUser?.full_name?.split(" ")?.firstOrNull() ?: "Usuario",
             currentDate = currentDate,
-            currentTime = currentTime,
             avatarUrl = currentUser?.avatar_url,
             activeMedicinesCount = medicines.count { it.active },
+            nextDoseInfo = nextDoseInfo,
             nextAppointment = appointments.minByOrNull { it.date }
         )
     }
 }
 
+private data class NextDoseInfo(
+    val medicineName: String,
+    val time: String,
+    val timeInMinutes: Int,
+    val isTomorrow: Boolean = false
+)
+
 @Composable
 private fun ModernStickyHeader(
     userName: String,
     currentDate: String,
-    currentTime: String,
     avatarUrl: String?,
     activeMedicinesCount: Int,
+    nextDoseInfo: NextDoseInfo?,
     nextAppointment: Appointment?
 ) {
+    // Saludo dinámico según hora del día
+    val greetingEmoji = remember {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        when (hour) {
+            in 5..11 -> "☀️"
+            in 12..17 -> "🌤️"
+            in 18..22 -> "🌙"
+            else -> "✨"
+        }
+    }
+    
+    val greeting = remember {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        when (hour) {
+            in 5..11 -> "Buenos días"
+            in 12..17 -> "Buenas tardes"
+            in 18..22 -> "Buenas noches"
+            else -> "Hola"
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 4.dp,
-                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
-            )
+            .height(180.dp)
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -267,99 +351,266 @@ private fun ModernStickyHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(top = 48.dp, bottom = 20.dp)
+                .padding(24.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Column {
-                    Text(
-                        text = "Hola, $userName",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = OnGradientLight
-                    )
+                // Saludo y fecha
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = greetingEmoji,
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Column {
+                            Text(
+                                text = greeting,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = OnGradientLight.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Normal
+                            )
+                            Text(
+                                text = userName,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = OnGradientLight,
+                                letterSpacing = (-0.5).sp
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
                     Text(
                         text = currentDate.capitalize(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = OnGradientLight.copy(alpha = 0.9f)
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = OnGradientLight.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                // Avatar
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    border = BorderStroke(2.dp, OnGradientLight.copy(alpha = 0.5f))
+                // Avatar mejorado con efecto glow
+                Box(
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (avatarUrl != null && PredefinedAvatars.isEmojiAvatar(avatarUrl)) {
-                            // Mostrar emoji
-                            Text(
-                                text = avatarUrl,
-                                style = MaterialTheme.typography.headlineLarge,
-                                modifier = Modifier.padding(4.dp)
+                    // Glow effect
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        OnGradientLight.copy(alpha = 0.3f),
+                                        Color.Transparent
+                                    )
+                                ),
+                                shape = CircleShape
                             )
-                        } else if (avatarUrl != null && avatarUrl.startsWith("http")) {
-                            // Mostrar imagen desde URL
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(avatarUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "Avatar del usuario",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = "Profile",
-                                modifier = Modifier.size(32.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary
-                            )
+                    )
+                    
+                    Surface(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .align(Alignment.Center),
+                        shape = CircleShape,
+                        color = OnGradientLight.copy(alpha = 0.15f),
+                        border = BorderStroke(3.dp, OnGradientLight.copy(alpha = 0.4f)),
+                        shadowElevation = 4.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (avatarUrl != null && PredefinedAvatars.isEmojiAvatar(avatarUrl)) {
+                                Text(
+                                    text = avatarUrl,
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    modifier = Modifier.padding(4.dp)
+                                )
+                            } else if (avatarUrl != null && avatarUrl.startsWith("http")) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(avatarUrl)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Avatar del usuario",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = "Profile",
+                                    modifier = Modifier.size(32.dp),
+                                    tint = OnGradientLight
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Estado dinámico
+            // Información contextual con glassmorphism
             Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val (statusIcon, statusText) = when {
-                    activeMedicinesCount > 0 -> Pair(Icons.Filled.Medication, "$activeMedicinesCount medicamentos activos")
-                    nextAppointment != null -> Pair(Icons.Filled.CalendarMonth, "Próxima cita: ${nextAppointment.date}")
-                    else -> Pair(Icons.Filled.CheckCircle, "Todo está bajo control")
+                // Próxima toma más cercana
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = OnGradientLight.copy(alpha = 0.2f),
+                    border = BorderStroke(1.dp, OnGradientLight.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(
+                                    OnGradientLight.copy(alpha = 0.25f),
+                                    RoundedCornerShape(8.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Medication,
+                                contentDescription = null,
+                                tint = OnGradientLight,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Próxima toma",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = OnGradientLight.copy(alpha = 0.8f),
+                                fontSize = 9.sp
+                            )
+                            Text(
+                                text = when {
+                                    nextDoseInfo != null && nextDoseInfo.isTomorrow ->
+                                        "Mañana ${nextDoseInfo.time}"
+                                    nextDoseInfo != null ->
+                                        "Hoy ${nextDoseInfo.time}"
+                                    else -> "Sin tomas"
+                                },
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = OnGradientLight
+                            )
+                        }
+                    }
                 }
-
-                Icon(
-                    imageVector = statusIcon,
-                    contentDescription = null,
-                    tint = OnGradientLight,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = currentTime,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = OnGradientLight
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = "• $statusText",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OnGradientLight.copy(alpha = 0.9f),
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
+                
+                // Chip de próxima acción con glassmorphism
+                if (nextAppointment != null) {
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = OnGradientLight.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, OnGradientLight.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        OnGradientLight.copy(alpha = 0.25f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.EventNote,
+                                    contentDescription = null,
+                                    tint = OnGradientLight,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Próxima cita",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = OnGradientLight.copy(alpha = 0.8f),
+                                    fontSize = 9.sp
+                                )
+                                val isToday = runCatching {
+                                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                    nextAppointment.date == today
+                                }.getOrDefault(false)
+                                val displayDate = if (isToday) {
+                                    "Hoy"
+                                } else {
+                                    nextAppointment.date.split("-").let { parts ->
+                                        if (parts.size == 3) "${parts[2]}/${parts[1]}" else nextAppointment.date
+                                    }
+                                }
+                                Text(
+                                    text = displayDate,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OnGradientLight
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = OnGradientLight.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, OnGradientLight.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        OnGradientLight.copy(alpha = 0.25f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.EventNote,
+                                    contentDescription = null,
+                                    tint = OnGradientLight,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Próxima cita",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = OnGradientLight.copy(alpha = 0.8f),
+                                    fontSize = 9.sp
+                                )
+                                Text(
+                                    text = "Sin citas",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OnGradientLight
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }

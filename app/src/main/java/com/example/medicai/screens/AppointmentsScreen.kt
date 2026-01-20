@@ -423,10 +423,10 @@ private fun AnimatedAppointmentCard(
     var expanded by remember { mutableStateOf(false) }
 
     val statusColor = when (appointment.status) {
-        "scheduled" -> com.example.medicai.ui.theme.AppointmentScheduledLight
-        "completed" -> com.example.medicai.ui.theme.AppointmentCompletedLight
-        "cancelled" -> com.example.medicai.ui.theme.AppointmentCancelledLight
-        else -> MaterialTheme.colorScheme.surfaceVariant
+        "scheduled" -> com.example.medicai.ui.theme.GradientStartSecondary
+        "completed" -> com.example.medicai.ui.theme.GradientStartSecondary
+        "cancelled" -> com.example.medicai.ui.theme.GradientStartSecondary
+        else -> MaterialTheme.colorScheme.secondary
     }
 
     val statusText = when (appointment.status) {
