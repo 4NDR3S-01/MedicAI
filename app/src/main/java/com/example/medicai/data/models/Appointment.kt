@@ -36,3 +36,19 @@ data class AppointmentRequest(
     val status: String = "scheduled"
 )
 
+/**
+ * DTO para upsert de citas (incluye id)
+ */
+@Serializable
+data class AppointmentUpsert(
+    val id: String,
+    val user_id: String,
+    val doctor_name: String,
+    val specialty: String,
+    val date: String,
+    val time: String,
+    val location: String,
+    val notes: String?,
+    val status: String
+)
+

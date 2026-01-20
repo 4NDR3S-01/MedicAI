@@ -3,8 +3,13 @@ package com.example.medicai.utils
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Network
+import android.net.ConnectivityManager.NetworkCallback
 import android.os.Build
 import android.util.Log
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 /**
  * Utilidad para monitorear el estado de la conexión a internet
@@ -38,5 +43,31 @@ object NetworkMonitor {
         val isAvailable = isNetworkAvailable(context)
         Log.d("NetworkMonitor", if (isAvailable) "✅ Conexión a internet disponible" else "❌ Sin conexión a internet")
         return isAvailable
+    }
+
+    /**
+     * Observar cambios de conectividad (true = online, false = offline)
+     */
+    fun observeNetworkAvailability(context: Context): Flow<Boolean> = callbackFlow {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        val callback = object : NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                trySend(true).isSuccess
+            }
+
+            override fun onLost(network: Network) {
+                trySend(false).isSuccess
+            }
+        }
+
+        // Emitir estado actual al iniciar
+        trySend(isNetworkAvailable(context)).isSuccess
+
+        connectivityManager.registerDefaultNetworkCallback(callback)
+
+        awaitClose {
+            connectivityManager.unregisterNetworkCallback(callback)
+        }
     }
 }

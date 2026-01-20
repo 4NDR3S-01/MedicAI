@@ -10,6 +10,7 @@ import com.example.medicai.data.models.Result
 import com.example.medicai.data.repository.MedicineRepository
 import com.example.medicai.notifications.AlarmScheduler
 import com.example.medicai.data.local.UserPreferencesManager
+import com.example.medicai.utils.NetworkMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,19 @@ class MedicineViewModel(
     // Estado de operación exitosa
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            NetworkMonitor.observeNetworkAvailability(getApplication()).collect { isOnline ->
+                if (isOnline) {
+                    val userId = UserPreferencesManager.getUserId(getApplication())
+                    if (userId != null) {
+                        loadMedicines(userId)
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Cargar medicamentos del usuario

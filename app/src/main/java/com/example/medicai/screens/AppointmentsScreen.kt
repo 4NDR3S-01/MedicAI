@@ -29,6 +29,7 @@ import androidx.lifecycle.ViewModelProvider
 import android.widget.Toast
 import com.example.medicai.data.models.Appointment
 import com.example.medicai.data.models.AppointmentRequest
+import com.example.medicai.data.models.Doctor
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.viewmodel.AppointmentViewModel
 import com.example.medicai.sensors.LocationPickerDialog
@@ -37,6 +38,7 @@ import com.example.medicai.ui.theme.GradientEndSecondary
 import com.example.medicai.ui.theme.OnGradientLight
 import com.example.medicai.ui.theme.UpdateSystemBars
 import com.example.medicai.utils.ValidationUtils
+import com.example.medicai.utils.MedicalSpecialties
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -53,6 +55,7 @@ fun AppointmentsScreen(
     val context = LocalContext.current
     val currentUser by authViewModel.currentUser.collectAsState()
     val appointments by appointmentViewModel.appointments.collectAsState()
+    val doctors by appointmentViewModel.doctors.collectAsState()
     val isLoading by appointmentViewModel.isLoading.collectAsState()
     val error by appointmentViewModel.error.collectAsState()
     val successMessage by appointmentViewModel.successMessage.collectAsState()
@@ -70,7 +73,10 @@ fun AppointmentsScreen(
 
     /** ──────────────────────────── Carga inicial ───────────────────────────── */
     LaunchedEffect(currentUser) {
-        currentUser?.id?.let(appointmentViewModel::loadAppointments)
+        currentUser?.id?.let { userId ->
+            appointmentViewModel.loadAppointments(userId)
+            appointmentViewModel.loadDoctors(userId)
+        }
     }
 
     /** ──────────────────────────── Notificaciones ─────────────────────────── */
@@ -186,6 +192,7 @@ fun AppointmentsScreen(
         currentUser?.let { user ->
             ModernAddAppointmentDialog(
                 userId = user.id,
+                doctors = doctors,
                 onDismiss = { showAddDialog = false },
                 onConfirm = {
                     appointmentViewModel.addAppointment(it) { showAddDialog = false }
@@ -197,6 +204,7 @@ fun AppointmentsScreen(
     if (showEditDialog && appointmentToEdit != null) {
         ModernEditAppointmentDialog(
             appointment = appointmentToEdit!!,
+            doctors = doctors,
             onDismiss = {
                 showEditDialog = false
                 appointmentToEdit = null
@@ -932,7 +940,8 @@ private fun getMonthName(date: String): String {
 private fun ModernAddAppointmentDialog(
     userId: String,
     onDismiss: () -> Unit,
-    onConfirm: (AppointmentRequest) -> Unit
+    onConfirm: (AppointmentRequest) -> Unit,
+    doctors: List<Doctor> = emptyList()
 ) {
     var doctorName by rememberSaveable { mutableStateOf("") }
     var specialty by rememberSaveable { mutableStateOf("") }
@@ -944,6 +953,17 @@ private fun ModernAddAppointmentDialog(
     var location by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var showLocationPicker by rememberSaveable { mutableStateOf(false) }
+    
+    // Estados para selectores
+    var showSpecialtyPicker by rememberSaveable { mutableStateOf(false) }
+    var showDoctorMenu by rememberSaveable { mutableStateOf(false) }
+    
+    // Obtener médicos con especialidad desde tabla dedicada
+    val previousDoctorsMap = remember(doctors) {
+        doctors
+            .associate { it.doctor_name to it.specialty }
+            .toSortedMap()
+    }
     
     // Estados de validación
     var doctorNameTouched by rememberSaveable { mutableStateOf(false) }
@@ -998,82 +1018,155 @@ private fun ModernAddAppointmentDialog(
                     .heightIn(max = 500.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Campo de médico con dropdown menu
                 item {
-                    OutlinedTextField(
-                        value = doctorName,
-                        onValueChange = { 
-                            if (it.length <= ValidationUtils.MAX_DOCTOR_NAME_LENGTH) {
-                                doctorName = it
-                                doctorNameTouched = true
-                            }
-                        },
-                        label = { Text("Nombre del médico *") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
-                        },
-                        supportingText = {
-                            val errorMessage = if (doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName)) {
-                                ValidationUtils.getDoctorNameErrorMessage(doctorName)
-                            } else null
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = MaterialTheme.colorScheme.error
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = doctorName,
+                            onValueChange = { 
+                                if (it.length <= ValidationUtils.MAX_DOCTOR_NAME_LENGTH) {
+                                    doctorName = it
+                                    doctorNameTouched = true
+                                }
+                            },
+                            label = { Text("Nombre del médico *") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
+                            },
+                            trailingIcon = {
+                                Row {
+                                    if (previousDoctorsMap.isNotEmpty()) {
+                                        IconButton(onClick = { showDoctorMenu = true }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = "Seleccionar médico anterior",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            supportingText = {
+                                val errorMessage = if (doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName)) {
+                                    ValidationUtils.getDoctorNameErrorMessage(doctorName)
+                                } else null
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = errorMessage ?: if (previousDoctorsMap.isNotEmpty()) "Toca ▼ para médicos anteriores" else "",
+                                        color = if (errorMessage != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "${doctorName.length}/${ValidationUtils.MAX_DOCTOR_NAME_LENGTH}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            },
+                            isError = doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        
+                        // Dropdown menu para médicos anteriores
+                        DropdownMenu(
+                            expanded = showDoctorMenu,
+                            onDismissRequest = { showDoctorMenu = false },
+                            modifier = Modifier.widthIn(min = 200.dp, max = 400.dp)
+                        ) {
+                            Text(
+                                "Médicos anteriores",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                            Divider()
+                            previousDoctorsMap.forEach { (doctor, doctorSpecialty) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                doctor,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                doctorSpecialty,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        doctorName = doctor
+                                        specialty = doctorSpecialty
+                                        showDoctorMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Filled.Person,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 )
-                                Text(
-                                    text = "${doctorName.length}/${ValidationUtils.MAX_DOCTOR_NAME_LENGTH}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
                             }
-                        },
-                        isError = doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                        }
+                    }
                 }
 
+                // Selector de especialidad
                 item {
-                    OutlinedTextField(
-                        value = specialty,
-                        onValueChange = { 
-                            if (it.length <= ValidationUtils.MAX_SPECIALTY_LENGTH) {
-                                specialty = it
-                                specialtyTouched = true
-                            }
+                    OutlinedCard(
+                        onClick = { 
+                            showSpecialtyPicker = true
+                            specialtyTouched = true
                         },
-                        label = { Text("Especialidad *") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.MedicalServices, contentDescription = "Especialidad")
-                        },
-                        supportingText = {
-                            val errorMessage = if (specialtyTouched && !ValidationUtils.isValidSpecialty(specialty)) {
-                                ValidationUtils.getSpecialtyErrorMessage(specialty)
-                            } else null
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = MaterialTheme.colorScheme.error
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.MedicalServices,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
                                 )
-                                Text(
-                                    text = "${specialty.length}/${ValidationUtils.MAX_SPECIALTY_LENGTH}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Especialidad médica *",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = if (specialty.isEmpty()) "Seleccionar especialidad" else specialty,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (specialty.isEmpty())
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        else
+                                            MaterialTheme.colorScheme.secondary
+                                    )
+                                }
                             }
-                        },
-                        isError = specialtyTouched && !ValidationUtils.isValidSpecialty(specialty),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = "Seleccionar",
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
                 }
 
                 // Date Picker Visual
@@ -1365,6 +1458,18 @@ private fun ModernAddAppointmentDialog(
             }
         )
     }
+    
+    // Specialty Picker Dialog
+    if (showSpecialtyPicker) {
+        SpecialtyPickerDialog(
+            currentSpecialty = specialty,
+            onDismiss = { showSpecialtyPicker = false },
+            onSpecialtySelected = { selectedSpecialty ->
+                specialty = selectedSpecialty
+                showSpecialtyPicker = false
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1372,7 +1477,8 @@ private fun ModernAddAppointmentDialog(
 private fun ModernEditAppointmentDialog(
     appointment: Appointment,
     onDismiss: () -> Unit,
-    onConfirm: (AppointmentRequest) -> Unit
+    onConfirm: (AppointmentRequest) -> Unit,
+    doctors: List<Doctor> = emptyList()
 ) {
     // Convertir fecha de yyyy-MM-dd a milisegundos
     val initialDateMillis = remember {
@@ -1392,11 +1498,20 @@ private fun ModernEditAppointmentDialog(
     var selectedMinute by rememberSaveable { mutableStateOf(initialTimeParts.getOrNull(1)?.toIntOrNull() ?: 0) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
     var showLocationPicker by rememberSaveable { mutableStateOf(false) }
+    var showSpecialtyPicker by rememberSaveable { mutableStateOf(false) }
+    var showDoctorMenu by rememberSaveable { mutableStateOf(false) }
 
     var doctorName by rememberSaveable { mutableStateOf(appointment.doctor_name) }
     var specialty by rememberSaveable { mutableStateOf(appointment.specialty) }
     var location by rememberSaveable { mutableStateOf(appointment.location) }
     var notes by rememberSaveable { mutableStateOf(appointment.notes ?: "") }
+    
+    // Obtener médicos con especialidad desde tabla dedicada
+    val previousDoctorsMap = remember(doctors) {
+        doctors
+            .associate { it.doctor_name to it.specialty }
+            .toSortedMap()
+    }
     
     // Estados de validación
     var doctorNameTouched by rememberSaveable { mutableStateOf(false) }
@@ -1451,82 +1566,155 @@ private fun ModernEditAppointmentDialog(
                     .heightIn(max = 500.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Campo de médico con dropdown menu
                 item {
-                    OutlinedTextField(
-                        value = doctorName,
-                        onValueChange = { 
-                            if (it.length <= ValidationUtils.MAX_DOCTOR_NAME_LENGTH) {
-                                doctorName = it
-                                doctorNameTouched = true
-                            }
-                        },
-                        label = { Text("Nombre del médico *") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
-                        },
-                        supportingText = {
-                            val errorMessage = if (doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName)) {
-                                ValidationUtils.getDoctorNameErrorMessage(doctorName)
-                            } else null
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = MaterialTheme.colorScheme.error
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = doctorName,
+                            onValueChange = { 
+                                if (it.length <= ValidationUtils.MAX_DOCTOR_NAME_LENGTH) {
+                                    doctorName = it
+                                    doctorNameTouched = true
+                                }
+                            },
+                            label = { Text("Nombre del médico *") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Person, contentDescription = "Nombre del doctor")
+                            },
+                            trailingIcon = {
+                                Row {
+                                    if (previousDoctorsMap.isNotEmpty()) {
+                                        IconButton(onClick = { showDoctorMenu = true }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowDropDown,
+                                                contentDescription = "Seleccionar médico anterior",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            supportingText = {
+                                val errorMessage = if (doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName)) {
+                                    ValidationUtils.getDoctorNameErrorMessage(doctorName)
+                                } else null
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = errorMessage ?: if (previousDoctorsMap.isNotEmpty()) "Toca ▼ para médicos anteriores" else "",
+                                        color = if (errorMessage != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "${doctorName.length}/${ValidationUtils.MAX_DOCTOR_NAME_LENGTH}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            },
+                            isError = doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        
+                        // Dropdown menu para médicos anteriores
+                        DropdownMenu(
+                            expanded = showDoctorMenu,
+                            onDismissRequest = { showDoctorMenu = false },
+                            modifier = Modifier.widthIn(min = 200.dp, max = 400.dp)
+                        ) {
+                            Text(
+                                "Médicos anteriores",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                            Divider()
+                            previousDoctorsMap.forEach { (doctor, doctorSpecialty) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                doctor,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                doctorSpecialty,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        doctorName = doctor
+                                        specialty = doctorSpecialty
+                                        showDoctorMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Filled.Person,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 )
-                                Text(
-                                    text = "${doctorName.length}/${ValidationUtils.MAX_DOCTOR_NAME_LENGTH}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
                             }
-                        },
-                        isError = doctorNameTouched && !ValidationUtils.isValidDoctorName(doctorName),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                        }
+                    }
                 }
 
+                // Selector de especialidad
                 item {
-                    OutlinedTextField(
-                        value = specialty,
-                        onValueChange = { 
-                            if (it.length <= ValidationUtils.MAX_SPECIALTY_LENGTH) {
-                                specialty = it
-                                specialtyTouched = true
-                            }
+                    OutlinedCard(
+                        onClick = { 
+                            showSpecialtyPicker = true
+                            specialtyTouched = true
                         },
-                        label = { Text("Especialidad *") },
-                        leadingIcon = {
-                            Icon(Icons.Filled.MedicalServices, contentDescription = "Especialidad")
-                        },
-                        supportingText = {
-                            val errorMessage = if (specialtyTouched && !ValidationUtils.isValidSpecialty(specialty)) {
-                                ValidationUtils.getSpecialtyErrorMessage(specialty)
-                            } else null
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = MaterialTheme.colorScheme.error
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.MedicalServices,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
                                 )
-                                Text(
-                                    text = "${specialty.length}/${ValidationUtils.MAX_SPECIALTY_LENGTH}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Especialidad médica *",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = if (specialty.isEmpty()) "Seleccionar especialidad" else specialty,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (specialty.isEmpty())
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        else
+                                            MaterialTheme.colorScheme.secondary
+                                    )
+                                }
                             }
-                        },
-                        isError = specialtyTouched && !ValidationUtils.isValidSpecialty(specialty),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = "Seleccionar",
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
                 }
 
                 // Date Picker Visual
@@ -1818,6 +2006,18 @@ private fun ModernEditAppointmentDialog(
             }
         )
     }
+    
+    // Specialty Picker Dialog
+    if (showSpecialtyPicker) {
+        SpecialtyPickerDialog(
+            currentSpecialty = specialty,
+            onDismiss = { showSpecialtyPicker = false },
+            onSpecialtySelected = { selectedSpecialty ->
+                specialty = selectedSpecialty
+                showSpecialtyPicker = false
+            }
+        )
+    }
 }
 
 // Componente DatePickerDialog para Citas
@@ -1828,8 +2028,24 @@ fun AppointmentDatePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (Long) -> Unit
 ) {
+    // Obtener fecha de hoy a medianoche (00:00:00) en UTC
+    val todayMidnightUtc = remember {
+        val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        calendar.timeInMillis
+    }
+
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialDateMillis ?: System.currentTimeMillis()
+        initialSelectedDateMillis = initialDateMillis ?: todayMidnightUtc,
+        // ✅ Solo permitir fechas desde hoy en adelante
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                return utcTimeMillis >= todayMidnightUtc
+            }
+        }
     )
 
     DatePickerDialog(
@@ -1870,11 +2086,22 @@ fun AppointmentTimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit
 ) {
+    // Validar horario laboral inicial (7:00 AM - 7:00 PM)
+    val validatedInitialHour = when {
+        initialHour < 7 -> 9  // Si es antes de las 7 AM, establecer 9 AM
+        initialHour >= 19 -> 14 // Si es después de las 7 PM, establecer 2 PM
+        else -> initialHour
+    }
+
     val timePickerState = rememberTimePickerState(
-        initialHour = initialHour,
+        initialHour = validatedInitialHour,
         initialMinute = initialMinute,
         is24Hour = true
     )
+
+    // Estado para mostrar mensaje de error
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1898,6 +2125,33 @@ fun AppointmentTimePickerDialog(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Información de horario laboral
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Horario laboral: 7:00 AM - 7:00 PM",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
                 TimePicker(
                     state = timePickerState,
                     colors = TimePickerDefaults.colors(
@@ -1907,12 +2161,50 @@ fun AppointmentTimePickerDialog(
                         timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
+
+                // Mostrar mensaje de error si la hora no es válida
+                if (showError) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(timePickerState.hour, timePickerState.minute)
+                    val selectedHour = timePickerState.hour
+                    val selectedMinute = timePickerState.minute
+
+                    // ✅ Validar que la hora esté dentro del horario laboral (7 AM - 7 PM)
+                    if (selectedHour < 7 || selectedHour >= 19) {
+                        showError = true
+                        errorMessage = "Solo se permiten horas entre 7:00 AM y 6:59 PM"
+                    } else {
+                        showError = false
+                        onConfirm(selectedHour, selectedMinute)
+                    }
                 },
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -1931,6 +2223,177 @@ fun AppointmentTimePickerDialog(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Cancelar")
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
+// Componente SpecialtyPickerDialog para seleccionar especialidad médica
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SpecialtyPickerDialog(
+    currentSpecialty: String,
+    onDismiss: () -> Unit,
+    onSpecialtySelected: (String) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    val filteredSpecialties = remember(searchQuery) {
+        if (searchQuery.isEmpty()) {
+            MedicalSpecialties.specialties
+        } else {
+            MedicalSpecialties.specialties.filter {
+                it.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.MedicalServices,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "Seleccionar Especialidad",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Campo de búsqueda
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Buscar especialidad") },
+                    leadingIcon = {
+                        Icon(Icons.Filled.Search, contentDescription = "Buscar")
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Filled.Clear, contentDescription = "Limpiar")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+
+                // Lista de especialidades
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(filteredSpecialties) { specialty ->
+                        val isSelected = specialty == currentSpecialty
+                        OutlinedCard(
+                            onClick = { onSpecialtySelected(specialty) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.outlinedCardColors(
+                                containerColor = if (isSelected)
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                else
+                                    MaterialTheme.colorScheme.surface
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected)
+                                    MaterialTheme.colorScheme.secondary
+                                else
+                                    MaterialTheme.colorScheme.outlineVariant
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.LocalHospital,
+                                        contentDescription = null,
+                                        tint = if (isSelected)
+                                            MaterialTheme.colorScheme.secondary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = specialty,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected)
+                                            MaterialTheme.colorScheme.secondary
+                                        else
+                                            MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = "Seleccionado",
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (filteredSpecialties.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.SearchOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "No se encontraron especialidades",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar")
             }
         },
         shape = RoundedCornerShape(24.dp)

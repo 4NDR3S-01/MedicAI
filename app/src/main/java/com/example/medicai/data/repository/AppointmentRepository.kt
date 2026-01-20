@@ -7,6 +7,8 @@ import com.example.medicai.data.local.entity.toAppointment
 import com.example.medicai.data.local.entity.toEntity
 import com.example.medicai.data.models.Appointment
 import com.example.medicai.data.models.AppointmentRequest
+import com.example.medicai.data.models.Doctor
+import com.example.medicai.data.models.DoctorUpsert
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.remote.SupabaseClient
 import com.example.medicai.utils.NetworkMonitor
@@ -49,6 +51,9 @@ class AppointmentRepository {
             try {
                 val context = MedicAIApplication.getInstance()
                 if (NetworkMonitor.isNetworkAvailable(context)) {
+                    // Subir pendientes locales antes de bajar del servidor
+                    syncPendingAppointments(userId)
+
                     val remoteAppointments = client.from("appointments")
                         .select()
                         .decodeList<Appointment>()
@@ -77,6 +82,9 @@ class AppointmentRepository {
             // 2. Si hay conexión, sincronizar con servidor
             if (NetworkMonitor.isNetworkAvailable(context)) {
                 try {
+                    // Subir pendientes locales antes de sincronizar
+                    syncPendingAppointments(userId)
+
                     Log.d("AppointmentRepository", "Sincronizando citas desde servidor...")
                     
                     val remoteAppointments = client.from("appointments")
@@ -103,6 +111,51 @@ class AppointmentRepository {
                 message = "Error al cargar citas: ${e.message}",
                 exception = e
             )
+        }
+    }
+
+    /**
+     * Sincronizar citas locales no sincronizadas hacia el servidor
+     */
+    private suspend fun syncPendingAppointments(userId: String) {
+        val pending = appointmentDao.getUnsyncedAppointments()
+            .filter { it.user_id == userId }
+
+        if (pending.isEmpty()) return
+
+        pending.forEach { entity ->
+            try {
+                val payload = com.example.medicai.data.models.AppointmentUpsert(
+                    id = entity.id,
+                    user_id = entity.user_id,
+                    doctor_name = entity.doctor_name,
+                    specialty = entity.specialty,
+                    date = entity.date,
+                    time = entity.time,
+                    location = entity.location,
+                    notes = entity.notes,
+                    status = entity.status
+                )
+
+                client.from("appointments")
+                    .upsert(payload, onConflict = "id")
+
+                // Sincronizar también el doctor asociado (en try-catch separado)
+                try {
+                    upsertDoctor(
+                        userId = entity.user_id,
+                        doctorName = entity.doctor_name,
+                        specialty = entity.specialty
+                    )
+                } catch (doctorError: Exception) {
+                    Log.w("AppointmentRepository", "⚠️ Error sincronizando doctor: ${doctorError.message}")
+                }
+
+                appointmentDao.markAsSynced(entity.id)
+                Log.d("AppointmentRepository", "✅ Cita ${entity.id} sincronizada (con doctor)")
+            } catch (e: Exception) {
+                Log.w("AppointmentRepository", "⚠️ Error sincronizando cita ${entity.id}: ${e.message}")
+            }
         }
     }
 
@@ -147,6 +200,13 @@ class AppointmentRepository {
                         select()
                     }
                     .decodeSingle<Appointment>()
+
+                // Guardar/actualizar médico en tabla dedicada
+                upsertDoctor(
+                    userId = appointment.user_id,
+                    doctorName = appointment.doctor_name,
+                    specialty = appointment.specialty
+                )
                 
                 // Guardar en caché local
                 appointmentDao.insertAppointment(newAppointment.toEntity(isSynced = true))
@@ -204,6 +264,13 @@ class AppointmentRepository {
                         }
                     }
                     .decodeSingle<Appointment>()
+
+                // Guardar/actualizar médico en tabla dedicada
+                upsertDoctor(
+                    userId = appointment.user_id,
+                    doctorName = appointment.doctor_name,
+                    specialty = appointment.specialty
+                )
                 
                 // Actualizar en caché local
                 appointmentDao.insertAppointment(updated.toEntity(isSynced = true))
@@ -238,6 +305,74 @@ class AppointmentRepository {
                 message = "Error al actualizar cita: ${e.message}",
                 exception = e
             )
+        }
+    }
+
+    /**
+     * Obtener médicos del usuario
+     */
+    suspend fun getDoctors(userId: String): Result<List<Doctor>> {
+        return try {
+            val context = MedicAIApplication.getInstance()
+
+            if (NetworkMonitor.isNetworkAvailable(context)) {
+                try {
+                    val doctors = client.from("doctors")
+                        .select {
+                            filter {
+                                eq("user_id", userId)
+                            }
+                        }
+                        .decodeList<Doctor>()
+
+                    Result.Success(doctors.sortedBy { it.doctor_name })
+                } catch (e: Exception) {
+                    Log.w("AppointmentRepository", "⚠️ Error cargando médicos remotos: ${e.message}")
+                    Result.Success(getDoctorsFromCache(userId))
+                }
+            } else {
+                Result.Success(getDoctorsFromCache(userId))
+            }
+        } catch (e: Exception) {
+            Log.e("AppointmentRepository", "❌ Error obteniendo médicos: ${e.message}", e)
+            Result.Success(getDoctorsFromCache(userId))
+        }
+    }
+
+    private suspend fun getDoctorsFromCache(userId: String): List<Doctor> {
+        val cachedAppointments = appointmentDao.getAppointments(userId)
+        return cachedAppointments
+            .groupBy { it.doctor_name }
+            .map { (name, items) ->
+                Doctor(
+                    user_id = userId,
+                    doctor_name = name,
+                    specialty = items.first().specialty
+                )
+            }
+            .sortedBy { it.doctor_name }
+    }
+
+    /**
+     * Insertar/actualizar médico (upsert) en tabla dedicada
+     */
+    suspend fun upsertDoctor(userId: String, doctorName: String, specialty: String) {
+        try {
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) return
+
+            val doctor = DoctorUpsert(
+                user_id = userId,
+                doctor_name = doctorName.trim(),
+                specialty = specialty.trim()
+            )
+
+            client.from("doctors")
+                .upsert(doctor, onConflict = "user_id,doctor_name")
+                
+            Log.d("AppointmentRepository", "✅ Doctor ${doctorName} guardado/actualizado")
+        } catch (e: Exception) {
+            Log.w("AppointmentRepository", "⚠️ No se pudo guardar médico: ${e.message}")
         }
     }
 

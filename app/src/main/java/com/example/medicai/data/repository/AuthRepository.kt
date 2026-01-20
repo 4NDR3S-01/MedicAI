@@ -10,6 +10,7 @@ import com.example.medicai.data.models.Result
 import com.example.medicai.data.models.UpdateProfileRequest
 import com.example.medicai.data.models.UserProfile
 import com.example.medicai.data.remote.SupabaseClient
+import com.example.medicai.data.local.UserPreferencesManager
 import com.example.medicai.utils.NetworkMonitor
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
@@ -246,7 +247,17 @@ class AuthRepository {
             val currentUser = auth.currentUserOrNull()
 
             if (currentUser == null) {
-                return Result.Success(null)
+                // Intentar usar caché local si existe
+                val cachedUserId = UserPreferencesManager.getUserId(MedicAIApplication.getInstance())
+                val cachedProfile = cachedUserId?.let { userProfileDao.getUserProfile(it)?.toUserProfile() }
+                return Result.Success(cachedProfile)
+            }
+
+            // Si no hay internet, usar caché local
+            val context = MedicAIApplication.getInstance()
+            if (!NetworkMonitor.isNetworkAvailable(context)) {
+                val cachedProfile = userProfileDao.getUserProfile(currentUser.id)?.toUserProfile()
+                return Result.Success(cachedProfile)
             }
 
             val profiles = client.from("profiles")
@@ -255,14 +266,28 @@ class AuthRepository {
 
             val profile = profiles.find { it.id == currentUser.id }
 
-            Result.Success(profile)
+            if (profile != null) {
+                Result.Success(profile)
+            } else {
+                // Fallback a caché local si el perfil no se encontró
+                val cachedUserId = UserPreferencesManager.getUserId(MedicAIApplication.getInstance())
+                val cachedProfile = cachedUserId?.let { userProfileDao.getUserProfile(it)?.toUserProfile() }
+                Result.Success(cachedProfile)
+            }
 
         } catch (e: Exception) {
             Log.e("AuthRepository", "Error al obtener usuario actual: ${e.message}", e)
-            Result.Error(
-                message = e.message ?: "Error al obtener usuario",
-                exception = e
-            )
+            // Fallback a caché local si hay problema de red
+            val cachedUserId = UserPreferencesManager.getUserId(MedicAIApplication.getInstance())
+            val cachedProfile = cachedUserId?.let { userProfileDao.getUserProfile(it)?.toUserProfile() }
+            if (cachedProfile != null) {
+                Result.Success(cachedProfile)
+            } else {
+                Result.Error(
+                    message = e.message ?: "Error al obtener usuario",
+                    exception = e
+                )
+            }
         }
     }
 
@@ -380,8 +405,18 @@ class AuthRepository {
         return try {
             val session = auth.currentSessionOrNull()
             val hasSession = session != null
-            Log.d("AuthRepository", "🔍 Verificación local de sesión: ${if (hasSession) "✅ Encontrada" else "❌ No encontrada"}")
-            hasSession
+            if (hasSession) {
+                Log.d("AuthRepository", "🔍 Verificación local de sesión: ✅ Encontrada")
+                return true
+            }
+
+            val cachedUserId = UserPreferencesManager.getUserId(MedicAIApplication.getInstance())
+            val hasCachedUser = cachedUserId != null
+            Log.d(
+                "AuthRepository",
+                "🔍 Verificación local sin sesión: ${if (hasCachedUser) "✅ UserId en caché" else "❌ Sin caché"}"
+            )
+            hasCachedUser
         } catch (e: Exception) {
             Log.e("AuthRepository", "❌ Error al verificar sesión local: ${e.message}", e)
             false

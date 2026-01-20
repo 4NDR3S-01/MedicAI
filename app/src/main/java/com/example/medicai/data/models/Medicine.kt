@@ -37,3 +37,20 @@ data class MedicineRequest(
     val active: Boolean = true
 )
 
+/**
+ * DTO para upsert de medicamentos (incluye id)
+ */
+@Serializable
+data class MedicineUpsert(
+    val id: String,
+    val user_id: String,
+    val name: String,
+    val dosage: String,
+    val frequency: String,
+    val times: List<String>,
+    val start_date: String,
+    val end_date: String?,
+    val notes: String?,
+    val active: Boolean
+)
+

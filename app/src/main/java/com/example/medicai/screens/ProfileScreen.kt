@@ -55,6 +55,7 @@ import com.example.medicai.ui.theme.UpdateSystemBars
 import com.example.medicai.utils.ValidationUtils
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.request.CachePolicy
 
 /**
  * Pantalla Moderna de Perfil/Configuración
@@ -425,11 +426,14 @@ private fun ProfileHeader(
                                 fontSize = 48.sp
                             )
                         } else if (userAvatar != null && userAvatar.startsWith("http")) {
-                            // Mostrar imagen desde URL usando Coil
+                            // Mostrar imagen desde URL usando Coil con caché de disco
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(userAvatar)
                                     .crossfade(true)
+                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .networkCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .build(),
                                 contentDescription = "Avatar del usuario",
                                 modifier = Modifier.fillMaxSize(),

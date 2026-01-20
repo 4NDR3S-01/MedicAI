@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.example.medicai.utils.NetworkMonitor
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -42,16 +43,38 @@ fun LocationPickerDialog(
     var isLoadingGPS by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var detectedAddress by remember { mutableStateOf<String?>(null) }
+    
+    // Detectar si hay conexión a internet
+    val hasInternet by remember { mutableStateOf(NetworkMonitor.isNetworkAvailable(context)) }
 
-    // Ubicaciones sugeridas comunes
+    // Ubicaciones sugeridas - Instituciones médicas comunes en Ecuador
     val suggestedLocations = remember {
         listOf(
-            "Hospital General",
-            "Clínica San José",
-            "Centro Médico ABC",
-            "Consultorio Médico",
-            "Hospital Universitario",
-            "Clínica del Norte"
+            "Hospital Metropolitano - Quito",
+            "Hospital Vozandes - Quito",
+            "Hospital del IESS",
+            "Hospital Carlos Andrade Marín",
+            "Hospital Eugenio Espejo",
+            "Clínica Pichincha",
+            "Hospital de los Valles",
+            "Centro de Salud",
+            "Clínica Santa Inés",
+            "Hospital Militar",
+            "Hospital Pablo Arturo Suárez",
+            "Clínica Kennedy - Guayaquil",
+            "Hospital Luis Vernaza",
+            "Hospital Abel Gilbert Pontón",
+            "Centro Médico Meditrópoli",
+            "Clínica Guayaquil",
+            "Hospital del Niño",
+            "Hospital Monte Sinaí",
+            "Consultorio Médico Privado",
+            "Centro de Especialidades Médicas",
+            "Clínica de Especialidades",
+            "Hospital General Docente de Riobamba",
+            "Hospital Regional Vicente Corral Moscoso - Cuenca",
+            "Hospital José Carrasco Arteaga",
+            "Subcentro de Salud"
         )
     }
 
@@ -124,11 +147,14 @@ fun LocationPickerDialog(
                     singleLine = true
                 )
 
-                // Botón de GPS
+                // Botón de GPS (requiere internet para geocoding)
                 Button(
                     onClick = {
                         errorMessage = null
                         when {
+                            !hasInternet -> {
+                                errorMessage = "GPS requiere internet para convertir coordenadas a dirección"
+                            }
                             ContextCompat.checkSelfPermission(
                                 context,
                                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -158,10 +184,16 @@ fun LocationPickerDialog(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoadingGPS,
+                    enabled = !isLoadingGPS && hasInternet,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = if (hasInternet) 
+                            MaterialTheme.colorScheme.secondaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (hasInternet) 
+                            MaterialTheme.colorScheme.onSecondaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
                     if (isLoadingGPS) {
@@ -172,9 +204,58 @@ fun LocationPickerDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Obteniendo ubicación...")
                     } else {
-                        Icon(Icons.Filled.MyLocation, contentDescription = "Mi ubicación actual")
+                        Icon(
+                            Icons.Filled.MyLocation, 
+                            contentDescription = "Mi ubicación actual",
+                            modifier = Modifier.size(20.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Usar mi ubicación actual (GPS)")
+                        Text(
+                            if (hasInternet) 
+                                "Usar mi ubicación actual (GPS)" 
+                            else 
+                                "GPS (requiere internet)"
+                        )
+                    }
+                }
+
+                // Info: Instrucción según conectividad
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (hasInternet) 
+                            MaterialTheme.colorScheme.tertiaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            if (hasInternet) Icons.Filled.Info else Icons.Filled.WifiOff,
+                            contentDescription = null,
+                            tint = if (hasInternet) 
+                                MaterialTheme.colorScheme.onTertiaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (hasInternet) 
+                                "Puedes usar GPS, escribir o seleccionar una ubicación" 
+                            else 
+                                "📴 Sin internet: escribe o selecciona una ubicación de la lista",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (hasInternet) 
+                                MaterialTheme.colorScheme.onTertiaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.onErrorContainer
+                        )
                     }
                 }
 
@@ -343,11 +424,8 @@ private fun getCurrentLocation(
                     if (address != null) {
                         onResult(address, null)
                     } else {
-                        // Si falla el geocoding, devolver coordenadas
-                        onResult(
-                            "Lat: ${location.latitude}, Lon: ${location.longitude}",
-                            null
-                        )
+                        // NO devolver coordenadas si falla el geocoding
+                        onResult(null, "No se pudo convertir la ubicación a dirección. Verifica tu conexión a internet.")
                     }
                 }
             } else {

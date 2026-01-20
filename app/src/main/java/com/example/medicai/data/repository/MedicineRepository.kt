@@ -58,6 +58,9 @@ class MedicineRepository {
             // 2. Si hay conexión, sincronizar con servidor
             if (NetworkMonitor.isNetworkAvailable(context)) {
                 try {
+                    // Subir pendientes locales antes de sincronizar
+                    syncPendingMedicines(userId)
+
                     Log.d("MedicineRepository", "Sincronizando medicamentos desde servidor...")
                     
                     val remoteMedicines = client.from("medicines")
@@ -88,6 +91,41 @@ class MedicineRepository {
     }
     
     /**
+     * Sincronizar medicamentos locales no sincronizados hacia el servidor
+     */
+    private suspend fun syncPendingMedicines(userId: String) {
+        val pending = medicineDao.getUnsyncedMedicines()
+            .filter { it.user_id == userId }
+
+        if (pending.isEmpty()) return
+
+        pending.forEach { entity ->
+            try {
+                val payload = com.example.medicai.data.models.MedicineUpsert(
+                    id = entity.id,
+                    user_id = entity.user_id,
+                    name = entity.name,
+                    dosage = entity.dosage,
+                    frequency = entity.frequency,
+                    times = entity.times,
+                    start_date = entity.start_date,
+                    end_date = entity.end_date,
+                    notes = entity.notes,
+                    active = entity.active
+                )
+
+                client.from("medicines")
+                    .upsert(payload, onConflict = "id")
+
+                medicineDao.markAsSynced(entity.id)
+                Log.d("MedicineRepository", "✅ Medicamento ${entity.id} sincronizado")
+            } catch (e: Exception) {
+                Log.w("MedicineRepository", "⚠️ Error sincronizando medicamento ${entity.id}: ${e.message}")
+            }
+        }
+    }
+
+    /**
      * Sincronizar medicamentos desde el servidor (función auxiliar)
      */
     private fun syncMedicinesFromServer(userId: String) {
@@ -95,6 +133,9 @@ class MedicineRepository {
             try {
                 val context = MedicAIApplication.getInstance()
                 if (NetworkMonitor.isNetworkAvailable(context)) {
+                    // Subir pendientes locales antes de bajar del servidor
+                    syncPendingMedicines(userId)
+
                     val remoteMedicines = client.from("medicines")
                         .select()
                         .decodeList<Medicine>()

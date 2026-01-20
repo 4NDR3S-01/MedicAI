@@ -559,11 +559,14 @@ private fun MessageBubble(message: com.example.medicai.data.models.ChatMessage, 
                             )
                         }
                         userAvatar != null && userAvatar.startsWith("http") -> {
-                            // Mostrar imagen desde URL
+                            // Mostrar imagen desde URL con caché de disco
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(userAvatar)
                                     .crossfade(true)
+                                    .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                                    .networkCachePolicy(coil.request.CachePolicy.ENABLED)
                                     .build(),
                                 contentDescription = "Avatar del usuario",
                                 modifier = Modifier.fillMaxSize(),

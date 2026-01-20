@@ -6,10 +6,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.medicai.data.models.Appointment
 import com.example.medicai.data.models.AppointmentRequest
+import com.example.medicai.data.models.Doctor
 import com.example.medicai.data.models.Result
 import com.example.medicai.data.repository.AppointmentRepository
 import com.example.medicai.notifications.AlarmScheduler
 import com.example.medicai.data.local.UserPreferencesManager
+import com.example.medicai.utils.NetworkMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +30,10 @@ class AppointmentViewModel(
     private val _appointments = MutableStateFlow<List<Appointment>>(emptyList())
     val appointments: StateFlow<List<Appointment>> = _appointments.asStateFlow()
 
+    // Estado de médicos
+    private val _doctors = MutableStateFlow<List<Doctor>>(emptyList())
+    val doctors: StateFlow<List<Doctor>> = _doctors.asStateFlow()
+
     // Estado de carga
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -39,6 +45,20 @@ class AppointmentViewModel(
     // Estado de operación exitosa
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            NetworkMonitor.observeNetworkAvailability(getApplication()).collect { isOnline ->
+                if (isOnline) {
+                    val userId = UserPreferencesManager.getUserId(getApplication())
+                    if (userId != null) {
+                        loadAppointments(userId)
+                        loadDoctors(userId)
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Cargar citas del usuario
@@ -63,6 +83,23 @@ class AppointmentViewModel(
             }
 
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Cargar médicos del usuario
+     */
+    fun loadDoctors(userId: String) {
+        viewModelScope.launch {
+            when (val result = repository.getDoctors(userId)) {
+                is Result.Success -> {
+                    _doctors.value = result.data
+                }
+                is Result.Error -> {
+                    _error.value = result.message
+                }
+                else -> {}
+            }
         }
     }
 
@@ -126,6 +163,7 @@ class AppointmentViewModel(
                     }
 
                     loadAppointments(appointment.user_id)
+                    loadDoctors(appointment.user_id)
                     onSuccess()
                 }
                 is Result.Error -> {
@@ -180,6 +218,7 @@ class AppointmentViewModel(
                     }
                     
                     loadAppointments(appointment.user_id)
+                    loadDoctors(appointment.user_id)
                     onSuccess()
                 }
                 is Result.Error -> {
