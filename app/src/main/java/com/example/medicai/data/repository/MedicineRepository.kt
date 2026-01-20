@@ -68,10 +68,11 @@ class MedicineRepository {
                         .decodeList<Medicine>()
                         .filter { it.user_id == userId }
                     
-                    // Actualizar caché local
+                    // Sincronización completa: eliminar caché local y reemplazar con datos del servidor
+                    medicineDao.deleteAllMedicines(userId)
                     medicineDao.insertMedicines(remoteMedicines.map { it.toEntity(isSynced = true) })
                     
-                    Log.d("MedicineRepository", "✅ ${remoteMedicines.size} medicamentos sincronizados")
+                    Log.d("MedicineRepository", "✅ ${remoteMedicines.size} medicamentos sincronizados (caché actualizado)")
                     Result.Success(remoteMedicines.sortedByDescending { it.created_at })
                 } catch (e: Exception) {
                     Log.w("MedicineRepository", "⚠️ Error sincronizando, usando caché local", e)

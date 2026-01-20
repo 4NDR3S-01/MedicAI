@@ -92,10 +92,11 @@ class AppointmentRepository {
                         .decodeList<Appointment>()
                         .filter { it.user_id == userId }
                     
-                    // Actualizar caché local
+                    // Sincronización completa: eliminar caché local y reemplazar con datos del servidor
+                    appointmentDao.deleteAllAppointments(userId)
                     appointmentDao.insertAppointments(remoteAppointments.map { it.toEntity(isSynced = true) })
                     
-                    Log.d("AppointmentRepository", "✅ ${remoteAppointments.size} citas sincronizadas")
+                    Log.d("AppointmentRepository", "✅ ${remoteAppointments.size} citas sincronizadas (caché actualizado)")
                     Result.Success(remoteAppointments.sortedBy { it.date })
                 } catch (e: Exception) {
                     Log.w("AppointmentRepository", "⚠️ Error sincronizando, usando caché local", e)
