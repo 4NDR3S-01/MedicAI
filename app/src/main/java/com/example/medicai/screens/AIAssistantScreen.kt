@@ -96,17 +96,14 @@ fun AIAssistantScreen(
         }
     }
 
-    // Obtener insets para aplicar padding del status bar y navegación
+    // Obtener insets para aplicar padding solo en la barra de navegación inferior
     val insets = androidx.compose.foundation.layout.WindowInsets
-    val systemBars = insets.statusBars.union(insets.navigationBars)
     val bottomBarPadding = insets.navigationBars.asPaddingValues().calculateBottomPadding()
     
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            // Aplicar todos los insets del sistema para respetar barras nativas en modo horizontal
-            .windowInsetsPadding(systemBars)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()

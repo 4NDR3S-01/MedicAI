@@ -112,8 +112,8 @@ fun MedicAITheme(
             val window = (view.context as Activity).window
             // Status bar transparente por defecto - cada pantalla define su color
             window.statusBarColor = android.graphics.Color.TRANSPARENT
-            // Habilitar drawing detrás de system bars
-            WindowCompat.setDecorFitsSystemWindows(window, false)
+            // Respetar system bars - el contenido no se dibuja detrás de ellas
+            WindowCompat.setDecorFitsSystemWindows(window, true)
         }
     }
 
