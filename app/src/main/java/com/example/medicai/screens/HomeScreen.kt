@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.medicai.ui.theme.OnGradientLight
@@ -37,10 +38,13 @@ import com.example.medicai.data.models.PredefinedAvatars
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.example.medicai.data.models.Appointment
 import com.example.medicai.viewmodel.AuthViewModel
 import com.example.medicai.viewmodel.MedicineViewModel
 import com.example.medicai.viewmodel.AppointmentViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.delay
@@ -59,6 +63,9 @@ fun HomeScreen(
     val currentUser by authViewModel.currentUser.collectAsState()
     val medicines by medicineViewModel.medicines.collectAsState()
     val appointments by appointmentViewModel.appointments.collectAsState()
+    val upcomingAppointments = remember(appointments) {
+        appointments.filter { it.status == "scheduled" }
+    }
 
     // Actualizar status bar con color del header (gradiente azul)
     UpdateSystemBars(
@@ -96,6 +103,21 @@ fun HomeScreen(
             medicineViewModel.loadMedicines(userId)
             appointmentViewModel.loadUpcomingAppointments(userId)
         }
+    }
+
+    // Refrescar al volver a la pantalla (sincroniza con base de datos)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, currentUser) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentUser?.id?.let { userId ->
+                    medicineViewModel.loadMedicines(userId)
+                    appointmentViewModel.loadUpcomingAppointments(userId)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Próxima toma más cercana (hoy o mañana)
@@ -149,8 +171,8 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         StatsCards(
                             medicinesCount = medicines.count { it.active },
-                            appointmentsCount = appointments.size,
-                            activeReminders = medicines.count { it.active } + appointments.size
+                            appointmentsCount = upcomingAppointments.size,
+                            activeReminders = medicines.count { it.active } + upcomingAppointments.size
                         )
                     }
                 }
@@ -207,6 +229,7 @@ fun HomeScreen(
                 }
             }
 
+            val activeMedicinesList = medicines.filter { it.active }
             if (medicines.isEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -217,6 +240,16 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+            } else if (activeMedicinesList.isEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    EmptyStateCard(
+                        icon = Icons.Filled.MedicalServices,
+                        title = "No hay medicamentos activos",
+                        description = "Activa tus proximos medicamentos para ver próximas tomas",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             } else {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -224,7 +257,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp)
                     ) {
-                        val activeMedicines = medicines.filter { it.active }.take(5)
+                        val activeMedicines = activeMedicinesList.take(5)
                         items(activeMedicines) { medicine ->
                             ModernMedicineCard(medicine = medicine)
                         }
@@ -245,14 +278,14 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(24.dp))
                         SectionHeader(
                             title = "Próximas Citas",
-                            subtitle = "${appointments.size} citas programadas",
+                            subtitle = "${upcomingAppointments.size} citas programadas",
                             icon = Icons.Filled.CalendarMonth
                         )
                     }
                 }
             }
 
-            if (appointments.isEmpty()) {
+            if (upcomingAppointments.isEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     EmptyStateCard(
@@ -266,7 +299,7 @@ fun HomeScreen(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-                appointments.take(3).forEach { appointment ->
+                upcomingAppointments.take(3).forEach { appointment ->
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                         ModernAppointmentCard(appointment = appointment)
@@ -291,7 +324,7 @@ fun HomeScreen(
             avatarUrl = currentUser?.avatar_url,
             activeMedicinesCount = medicines.count { it.active },
             nextDoseInfo = nextDoseInfo,
-            nextAppointment = appointments.minByOrNull { it.date }
+            nextAppointment = upcomingAppointments.minByOrNull { it.date }
         )
     }
 }
@@ -459,53 +492,97 @@ private fun ModernStickyHeader(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Próxima toma más cercana
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    color = OnGradientLight.copy(alpha = 0.2f),
-                    border = BorderStroke(1.dp, OnGradientLight.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Próxima toma más cercana / placeholder de medicamentos
+                if (nextDoseInfo != null) {
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = OnGradientLight.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, OnGradientLight.copy(alpha = 0.3f))
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(
-                                    OnGradientLight.copy(alpha = 0.25f),
-                                    RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Medication,
-                                contentDescription = null,
-                                tint = OnGradientLight,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Próxima toma",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = OnGradientLight.copy(alpha = 0.8f),
-                                fontSize = 9.sp
-                            )
-                            Text(
-                                text = when {
-                                    nextDoseInfo != null && nextDoseInfo.isTomorrow ->
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        OnGradientLight.copy(alpha = 0.25f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Medication,
+                                    contentDescription = null,
+                                    tint = OnGradientLight,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Próxima toma",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = OnGradientLight.copy(alpha = 0.8f),
+                                    fontSize = 9.sp
+                                )
+                                Text(
+                                    text = if (nextDoseInfo.isTomorrow) {
                                         "Mañana ${nextDoseInfo.time}"
-                                    nextDoseInfo != null ->
+                                    } else {
                                         "Hoy ${nextDoseInfo.time}"
-                                    else -> "Sin tomas"
-                                },
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = OnGradientLight
-                            )
+                                    },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OnGradientLight
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        color = OnGradientLight.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, OnGradientLight.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        OnGradientLight.copy(alpha = 0.25f),
+                                        RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MedicalServices,
+                                    contentDescription = null,
+                                    tint = OnGradientLight,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Medicamentos",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = OnGradientLight.copy(alpha = 0.8f),
+                                    fontSize = 9.sp
+                                )
+                                Text(
+                                    text = "Sin tomas",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = OnGradientLight
+                                )
+                            }
                         }
                     }
                 }
@@ -1118,7 +1195,9 @@ private fun EmptyStateCard(
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
