@@ -49,24 +49,22 @@ class AuthRepository {
             Log.d("AuthRepository", "Usuario registrado en Auth. ID: $userId")
 
             // 2. Crear perfil COMPLETO manualmente con TODOS los datos del formulario
-            val newProfile = UserProfile(
-                id = userId,
-                email = data.email,
-                full_name = data.fullName, // ✅ Nombre completo del formulario
-                phone = data.phone,        // ✅ Teléfono del formulario
-                notifications_enabled = data.notificationsEnabled, // ✅ Preferencia de notificaciones
-                reminder_minutes = data.reminderMinutes,           // ✅ Minutos de recordatorio
-                avatar_url = null,
-                created_at = null,
-                updated_at = null
+
+            val profileMap = mapOf(
+                "id" to userId,
+                "email" to data.email,
+                "full_name" to data.fullName,
+                "phone" to data.phone,
+                "notifications_enabled" to data.notificationsEnabled,
+                "reminder_minutes" to data.reminderMinutes
             )
 
-            Log.d("AuthRepository", "Creando perfil con datos: name=${data.fullName}, phone=${data.phone}, notifications=${data.notificationsEnabled}, reminder=${data.reminderMinutes}")
+            Log.d("AuthRepository", "Creando perfil (map) con datos: name=${data.fullName}, phone=${data.phone}, notifications=${data.notificationsEnabled}, reminder=${data.reminderMinutes}")
 
-            // 3. Insertar el perfil en la base de datos
+            // 3. Insertar el perfil en la base de datos usando un Map para evitar problemas de serialización
             try {
-                client.from("profiles").insert(newProfile)
-                Log.d("AuthRepository", "✅ Perfil creado exitosamente con todos los datos")
+                client.from("profiles").insert(profileMap)
+                Log.d("AuthRepository", "✅ Perfil creado exitosamente con todos los datos (map)")
             } catch (insertError: Exception) {
                 Log.e("AuthRepository", "❌ Error al insertar perfil: ${insertError.message}", insertError)
                 throw insertError
@@ -91,11 +89,24 @@ class AuthRepository {
                 return Result.Success(createdProfile)
             } else {
                 Log.w("AuthRepository", "⚠️ Perfil creado pero no encontrado en verificación")
-                
+
+                // Reconstruir el objeto UserProfile desde profileMap
+                val fallbackProfile = UserProfile(
+                    id = profileMap["id"] as String,
+                    email = profileMap["email"] as String,
+                    full_name = profileMap["full_name"] as String,
+                    phone = profileMap["phone"] as? String,
+                    notifications_enabled = profileMap["notifications_enabled"] as? Boolean ?: true,
+                    reminder_minutes = profileMap["reminder_minutes"] as? Int ?: 15,
+                    avatar_url = null,
+                    created_at = null,
+                    updated_at = null
+                )
+
                 // Guardar en caché local
-                userProfileDao.insertUserProfile(newProfile.toEntity(isSynced = true))
-                
-                return Result.Success(newProfile)
+                userProfileDao.insertUserProfile(fallbackProfile.toEntity(isSynced = true))
+
+                return Result.Success(fallbackProfile)
             }
 
         } catch (e: Exception) {
